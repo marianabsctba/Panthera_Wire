@@ -261,7 +261,7 @@ releases (Windows, Linux, macOS).
 | Fase | Entrega |
 |---|---|
 | 0 | Esqueleto: repositório, CI, Pages no ar, identidade visual, três idiomas (feito) |
-| 1 | Núcleo: pcap e pcapng, fluxos, hosts, DNS, HTTP, TLS, visão geral e linha do tempo, **offline (PWA)** |
+| 1 | Núcleo: pcap e pcapng, fluxos, hosts, DNS, HTTP, TLS, visão geral e linha do tempo, **offline (PWA)** (feito, ver abaixo) |
 | 2 | Analisadores com ATT&CK e **história da captura** |
 | 3 | **Anonimizador** e exportação JSON, CSV e STIX |
 | 4 | Protocolos de rede corporativa (SMB, Kerberos, LDAP), extração de arquivos, CLI |
@@ -271,6 +271,39 @@ releases (Windows, Linux, macOS).
 
 O offline entra já na fase 1 porque é barato e define como os arquivos do site
 são organizados desde o começo.
+
+### Estado da fase 1
+
+Pronto:
+
+- Leitura em streaming de pcap (micro e nanossegundos, as duas ordens de bytes)
+  e pcapng (várias seções e interfaces, `if_tsresol`, blocos EPB, SPB e PB).
+- Enlaces Ethernet (com VLAN e QinQ), Linux SLL e SLL2, loopback e IP cru;
+  IPv4, IPv6 com cabeçalhos de extensão, fragmentos, TCP, UDP, ICMP e ARP.
+- Fluxos bidirecionais com expiração por inatividade e reuso de porta, estado
+  TCP e aplicação confirmada pelo conteúdo ou deduzida pela porta.
+- DNS (com compressão e pareamento consulta e resposta), HTTP/1.x (sem guardar
+  credenciais), TLS (SNI, ALPN, versão e cifra negociadas) e DHCP.
+- Hosts com nomes aprendidos por DNS, SNI, HTTP e DHCP.
+- Interface: visão geral, linha do tempo, fluxos, hosts, DNS, TLS e HTTP, nos
+  três idiomas.
+- Offline: service worker gerado no build e manifesto para instalar.
+- Medido: 1 GB sintético em 4 s no terminal (255 MB/s) e 300 MB em 2,4 s no
+  navegador.
+
+Ainda não, e por quê:
+
+- **Fluxos e eventos ficam em memória**, com limites (2 milhões de fluxos,
+  1 milhão de hosts, 500 mil eventos por tipo) e aviso quando estouram. A
+  interface recebe os 50 mil maiores fluxos e os primeiros 50 mil eventos de
+  cada tipo. Descarregar para OPFS com DuckDB-WASM é o próximo passo, quando
+  capturas reais mostrarem que os limites apertam.
+- **Sem remontagem TCP:** HTTP e TLS são lidos do segmento em que começam.
+  Basta para cabeçalhos e handshakes; extração de arquivos (fase 4) vai exigir
+  remontagem.
+- **Detalhe de um fluxo pacote a pacote:** o offset do primeiro pacote já é
+  guardado; a tela que relê o trecho do arquivo ainda não existe.
+- **Pacote ZIP para rede isolada** nas releases.
 
 ## Idiomas
 

@@ -25,10 +25,29 @@ que merece atenção.
 
 > Em construção. O plano completo está em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 
-## Rodando a interface localmente
+## Desenvolvimento
+
+Precisa de Node 22, Rust estável com o alvo `wasm32-unknown-unknown` e o
+`wasm-bindgen-cli` na versão **0.2.129** (a mesma de `wasm/Cargo.toml`).
 
 ```bash
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.129
+```
+
+```bash
+cargo test -p panthera-wire-nucleo     # testes do núcleo
 cd web
 npm install
+npm run nucleo                         # compila o núcleo para WASM
 npm run dev
 ```
+
+O núcleo também roda direto no terminal, útil para medir desempenho:
+
+```bash
+cargo run --release -p panthera-wire-nucleo --example resumo -- captura.pcap
+```
+
+Capturas de teste: `python scripts/gerar_amostra.py amostras/` gera o cenário
+de exemplo, e `--grande 1024` gera um arquivo de cerca de 1 GB.
