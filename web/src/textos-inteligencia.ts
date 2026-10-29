@@ -21,10 +21,17 @@ interface TextoRegra {
 
 const bytes = (v: string | undefined) => tamanho(Number(v ?? 0));
 
+const TIPOS_WEB: Record<"pt" | "en" | "es", Record<string, string>> = {
+  pt: { traversal: "path traversal", sqli: "SQL injection", xss: "XSS", comando: "injeção de comando", log4shell: "Log4Shell" },
+  en: { traversal: "path traversal", sqli: "SQL injection", xss: "XSS", comando: "command injection", log4shell: "Log4Shell" },
+  es: { traversal: "path traversal", sqli: "inyección SQL", xss: "XSS", comando: "inyección de comandos", log4shell: "Log4Shell" },
+};
+
 const pt = {
   severidades: { baixa: "Baixa", media: "Média", alta: "Alta" } as Record<string, string>,
   confiancas: { baixa: "confiança baixa", media: "confiança média", alta: "confiança alta" } as Record<string, string>,
   fases: {
+    acesso_inicial: "Acesso inicial",
     entrega: "Entrega",
     comando_e_controle: "Comando e controle",
     credenciais: "Credenciais",
@@ -45,7 +52,7 @@ const pt = {
     pacienteZero: (h: string, n: number, fases: number, ini: string, fim: string) =>
       `Tudo indica que ${h} é o ponto de partida: ${n} ${n === 1 ? "fato" : "fatos"} em ${fases} ${fases === 1 ? "fase" : "fases"}, das ${ini} às ${fim} (UTC).`,
     tambem: "Também envolvidos",
-    tambemDetalhe: "Hosts internos com alertas próprios ou que falaram com os mesmos destinos suspeitos.",
+    tambemDetalhe: "Hosts da rede com alertas próprios ou que falaram com os mesmos destinos maliciosos (comando, entrega, exfiltração).",
     outras: "Outras sequências",
     sequencia: (h: string) => `Sequência de ${h}`,
     naoMostraTitulo: "O que esta captura não mostra",
@@ -104,6 +111,12 @@ const pt = {
       titulo: (a) => `Download de executável de ${a.alvo}`,
       frase: (a) => `${a.h} baixou ${a.p.url}${a.p.tamanho ? ` (${bytes(a.p.tamanho)})` : ""}${a.p.ip_direto === "true" ? ", direto de um IP, sem nome de domínio" : ""}.`,
       porque: "Executáveis e scripts baixados por HTTP sem cifra, de domínios pouco conhecidos, são uma forma comum de entregar malware.",
+    },
+    ataque_web: {
+      nome: "Ataque a aplicação web",
+      titulo: (a) => `Tentativa de ${TIPOS_WEB.pt[a.p.tipo] ?? a.p.tipo} em ${a.alvo}`,
+      frase: (a) => `${a.h} enviou ${a.p.tentativas} ${a.p.tentativas === "1" ? "requisição" : "requisições"} com ${TIPOS_WEB.pt[a.p.tipo] ?? a.p.tipo} para ${a.alvo}, como ${a.p.exemplo}, e ${a.p.sucesso === "true" ? "o servidor respondeu com sucesso" : "o servidor não respondeu com sucesso"}.`,
+      porque: "URLs com esses padrões tentam explorar falhas da aplicação para ler arquivos do servidor, mexer no banco de dados ou executar comandos.",
     },
     dga: {
       nome: "Domínios gerados por algoritmo",
@@ -176,6 +189,7 @@ const en: TextosInteligencia = {
   severidades: { baixa: "Low", media: "Medium", alta: "High" },
   confiancas: { baixa: "low confidence", media: "medium confidence", alta: "high confidence" },
   fases: {
+    acesso_inicial: "Initial access",
     entrega: "Delivery",
     comando_e_controle: "Command and control",
     credenciais: "Credentials",
@@ -196,7 +210,7 @@ const en: TextosInteligencia = {
     pacienteZero: (h, n, fases, ini, fim) =>
       `${h} is most likely the starting point: ${n} ${n === 1 ? "fact" : "facts"} across ${fases} ${fases === 1 ? "phase" : "phases"}, from ${ini} to ${fim} (UTC).`,
     tambem: "Also involved",
-    tambemDetalhe: "Internal hosts with their own alerts, or that talked to the same suspicious destinations.",
+    tambemDetalhe: "Network hosts with their own alerts, or that talked to the same malicious destinations (command, delivery, exfiltration).",
     outras: "Other sequences",
     sequencia: (h) => `Sequence for ${h}`,
     naoMostraTitulo: "What this capture does not show",
@@ -255,6 +269,12 @@ const en: TextosInteligencia = {
       titulo: (a) => `Executable downloaded from ${a.alvo}`,
       frase: (a) => `${a.h} downloaded ${a.p.url}${a.p.tamanho ? ` (${bytes(a.p.tamanho)})` : ""}${a.p.ip_direto === "true" ? ", straight from an IP, with no domain name" : ""}.`,
       porque: "Executables and scripts downloaded over unencrypted HTTP from little-known domains are a common way to deliver malware.",
+    },
+    ataque_web: {
+      nome: "Web application attack",
+      titulo: (a) => `${TIPOS_WEB.en[a.p.tipo] ?? a.p.tipo} attempt against ${a.alvo}`,
+      frase: (a) => `${a.h} sent ${a.p.tentativas} ${a.p.tentativas === "1" ? "request" : "requests"} with ${TIPOS_WEB.en[a.p.tipo] ?? a.p.tipo} to ${a.alvo}, such as ${a.p.exemplo}, and ${a.p.sucesso === "true" ? "the server answered with success" : "the server did not answer with success"}.`,
+      porque: "URLs with these patterns try to exploit application flaws to read server files, tamper with the database or run commands.",
     },
     dga: {
       nome: "Algorithm-generated domains",
@@ -325,6 +345,7 @@ const es: TextosInteligencia = {
   severidades: { baixa: "Baja", media: "Media", alta: "Alta" },
   confiancas: { baixa: "confianza baja", media: "confianza media", alta: "confianza alta" },
   fases: {
+    acesso_inicial: "Acceso inicial",
     entrega: "Entrega",
     comando_e_controle: "Comando y control",
     credenciais: "Credenciales",
@@ -345,7 +366,7 @@ const es: TextosInteligencia = {
     pacienteZero: (h, n, fases, ini, fim) =>
       `Todo indica que ${h} es el punto de partida: ${n} ${n === 1 ? "hecho" : "hechos"} en ${fases} ${fases === 1 ? "fase" : "fases"}, de las ${ini} a las ${fim} (UTC).`,
     tambem: "También involucrados",
-    tambemDetalhe: "Hosts internos con alertas propias o que hablaron con los mismos destinos sospechosos.",
+    tambemDetalhe: "Hosts de la red con alertas propias o que hablaron con los mismos destinos maliciosos (comando, entrega, exfiltración).",
     outras: "Otras secuencias",
     sequencia: (h) => `Secuencia de ${h}`,
     naoMostraTitulo: "Lo que esta captura no muestra",
@@ -404,6 +425,12 @@ const es: TextosInteligencia = {
       titulo: (a) => `Descarga de ejecutable desde ${a.alvo}`,
       frase: (a) => `${a.h} descargó ${a.p.url}${a.p.tamanho ? ` (${bytes(a.p.tamanho)})` : ""}${a.p.ip_direto === "true" ? ", directo desde una IP, sin nombre de dominio" : ""}.`,
       porque: "Ejecutables y scripts descargados por HTTP sin cifrar, desde dominios poco conocidos, son una forma común de entregar malware.",
+    },
+    ataque_web: {
+      nome: "Ataque a aplicación web",
+      titulo: (a) => `Intento de ${TIPOS_WEB.es[a.p.tipo] ?? a.p.tipo} en ${a.alvo}`,
+      frase: (a) => `${a.h} envió ${a.p.tentativas} ${a.p.tentativas === "1" ? "solicitud" : "solicitudes"} con ${TIPOS_WEB.es[a.p.tipo] ?? a.p.tipo} a ${a.alvo}, como ${a.p.exemplo}, y ${a.p.sucesso === "true" ? "el servidor respondió con éxito" : "el servidor no respondió con éxito"}.`,
+      porque: "Las URL con estos patrones intentan explotar fallas de la aplicación para leer archivos del servidor, alterar la base de datos o ejecutar comandos.",
     },
     dga: {
       nome: "Dominios generados por algoritmo",

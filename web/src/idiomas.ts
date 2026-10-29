@@ -19,6 +19,7 @@ const pt = {
     atualizar: "Atualizar agora",
   },
   menu: {
+    abrir: "Abrir captura",
     historia: "História",
     visaoGeral: "Visão geral",
     alertas: "Alertas",
@@ -115,7 +116,7 @@ const pt = {
   nada: "Nada encontrado.",
   porPorta: "deduzido pela porta, sem confirmar pelo conteúdo",
 
-  escopos: { interno: "interno", externo: "externo", multicast: "multicast" } as Record<string, string>,
+  escopos: { interno: "interno", externo: "externo", multicast: "multicast", reservado: "reservado (documentação)" } as Record<string, string>,
   estados: {
     aberta: "aberta",
     encerrada: "encerrada",
@@ -149,6 +150,7 @@ const en: Textos = {
     atualizar: "Update now",
   },
   menu: {
+    abrir: "Open capture",
     historia: "Story",
     visaoGeral: "Overview",
     alertas: "Alerts",
@@ -245,7 +247,7 @@ const en: Textos = {
   nada: "Nothing found.",
   porPorta: "inferred from the port, not confirmed by content",
 
-  escopos: { interno: "internal", externo: "external", multicast: "multicast" },
+  escopos: { interno: "internal", externo: "external", multicast: "multicast", reservado: "reserved (documentation)" },
   estados: {
     aberta: "open",
     encerrada: "closed",
@@ -276,6 +278,7 @@ const es: Textos = {
     atualizar: "Actualizar ahora",
   },
   menu: {
+    abrir: "Abrir captura",
     historia: "Historia",
     visaoGeral: "Resumen",
     alertas: "Alertas",
@@ -372,7 +375,7 @@ const es: Textos = {
   nada: "No se encontró nada.",
   porPorta: "deducido por el puerto, sin confirmar por el contenido",
 
-  escopos: { interno: "interno", externo: "externo", multicast: "multicast" },
+  escopos: { interno: "interno", externo: "externo", multicast: "multicast", reservado: "reservado (documentación)" },
   estados: {
     aberta: "abierta",
     encerrada: "cerrada",

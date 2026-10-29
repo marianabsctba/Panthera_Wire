@@ -15,6 +15,7 @@ const LOGO = `${import.meta.env.BASE_URL}pantera.webp`;
 type Pagina = keyof Textos["menu"];
 
 const MENU: { chave: Pagina; icone: typeof Activity; pronta: boolean }[] = [
+  { chave: "abrir", icone: FileUp, pronta: true },
   { chave: "historia", icone: BookOpen, pronta: true },
   { chave: "visaoGeral", icone: LayoutDashboard, pronta: true },
   { chave: "alertas", icone: AlertTriangle, pronta: true },
@@ -29,7 +30,7 @@ const MENU: { chave: Pagina; icone: typeof Activity; pronta: boolean }[] = [
 ];
 
 /** Páginas que não dependem de uma captura aberta. */
-const SEM_CAPTURA: Pagina[] = ["cobertura"];
+const SEM_CAPTURA: Pagina[] = ["abrir", "cobertura"];
 
 const PAGINAS: Partial<Record<Pagina, (c: Contexto) => JSX.Element>> = {
   historia: Historia,
@@ -52,7 +53,7 @@ type Estado =
 export default function App() {
   const [idioma, setIdioma] = useState<Idioma>(idiomaInicial);
   const [estado, setEstado] = useState<Estado>({ fase: "inicio" });
-  const [pagina, setPagina] = useState<Pagina>("historia");
+  const [pagina, setPagina] = useState<Pagina>("abrir");
   const [arrastando, setArrastando] = useState(false);
   const seletor = useRef<HTMLInputElement>(null);
   const worker = useRef<Worker | null>(null);
@@ -106,10 +107,10 @@ export default function App() {
     if (f) abrir(f);
   }
 
-  function reiniciar() {
+  function cancelar() {
     encerrarLeitura();
     setEstado({ fase: "inicio" });
-    setPagina("historia");
+    setPagina("abrir");
   }
 
   const nomes = useMemo(() => {
@@ -170,11 +171,11 @@ export default function App() {
           </nav>
 
           <main className="conteudo" ref={conteudo}>
-            {SEM_CAPTURA.includes(pagina) && (
+            {pagina === "cobertura" && (
               <>
                 <div className="cabecalho">
                   <h1>{t.menu[pagina]}</h1>
-                  {estado.fase !== "inicio" && (
+                  {pronto && (
                     <div className="acoes">
                       <button onClick={() => setPagina("historia")}><BookOpen size={15} /> {t.menu.historia}</button>
                     </div>
@@ -189,7 +190,7 @@ export default function App() {
                 <div className="cabecalho">
                   <h1>{t.menu[pagina]}</h1>
                   <div className="acoes">
-                    <button onClick={reiniciar}><FileUp size={15} /> {t.abrirOutra}</button>
+                    <button onClick={() => setPagina("abrir")}><FileUp size={15} /> {t.abrirOutra}</button>
                   </div>
                 </div>
                 <Pagina r={estado.relatorio} nomes={nomes} segundos={estado.segundos} />
@@ -206,12 +207,12 @@ export default function App() {
                   <span className="suave">
                     {t.lendoDetalhe(tamanho(estado.lidos), tamanho(estado.arquivo.size), numero(estado.pacotes, idioma))}
                   </span>
-                  <button onClick={reiniciar}><X size={15} /> {t.cancelar}</button>
+                  <button onClick={cancelar}><X size={15} /> {t.cancelar}</button>
                 </div>
               </div>
             )}
 
-            {!SEM_CAPTURA.includes(pagina) && (estado.fase === "inicio" || estado.fase === "falha") && (
+            {(pagina === "abrir" || (!SEM_CAPTURA.includes(pagina) && (estado.fase === "inicio" || estado.fase === "falha"))) && (
               <>
                 <div className="cabecalho">
                   <div>

@@ -25,7 +25,7 @@ export interface Contagem {
 
 export interface Host {
   ip: string;
-  escopo: "interno" | "externo" | "multicast";
+  escopo: "interno" | "externo" | "multicast" | "reservado";
   mac: string | null;
   nomes: string[];
   pacotes_enviados: number;
@@ -80,6 +80,7 @@ export interface EventoHttp {
   caminho: string;
   user_agent: string | null;
   autorizacao: string | null;
+  senha_em_claro: boolean;
   status: number | null;
   tipo_conteudo: string | null;
   tamanho: number | null;

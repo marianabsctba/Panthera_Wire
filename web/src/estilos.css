@@ -156,6 +156,11 @@ td:first-child .selo, td > .selo:only-child { margin-left: 0; }
 .barra-numero { color: var(--texto); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ===== Alertas, história e cobertura ===== */
+.lista { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.lista li { position: relative; padding-left: 16px; }
+.lista li::before {
+  content: ""; position: absolute; left: 2px; top: 0.6em; width: 6px; height: 6px; border-radius: 50%; background: var(--rosa);
+}
 button.link { border: 0; padding: 4px 0; color: var(--rosa-claro); background: none; font-size: 13px; }
 button.link:hover { text-decoration: underline; }
 .bloco h3 { font-size: 15px; font-weight: 500; }

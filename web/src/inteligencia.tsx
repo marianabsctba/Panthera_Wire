@@ -286,7 +286,7 @@ export function Historia({ r, nomes }: Contexto) {
       <div className="bloco">
         <h2>{ti.historia.naoMostraTitulo}</h2>
         <ul className="lista">
-          {h.nao_mostra.map((c) => <li key={c}>· {ti.naoMostra[c] ?? c}</li>)}
+          {h.nao_mostra.map((c) => <li key={c}>{ti.naoMostra[c] ?? c}</li>)}
         </ul>
       </div>
     </>
