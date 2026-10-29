@@ -136,14 +136,21 @@ fn laboratorio_com_enderecos_de_documentacao() {
     assert_eq!(disfarce, vec!["53"], "{disfarce:?}");
     assert!(r.http.iter().any(|h| h.caminho == "/config.xml" && h.status == Some(200)), "HTTP partido não foi remontado");
 
+    // C2 rotativo: mesmo pedido para 6 domínios, com navegador de 2015.
+    let rot = r.alertas.iter().find(|a| a.regra == "c2_rotativo").expect("sem c2_rotativo");
+    assert_eq!((rot.host.to_string().as_str(), rot.parametros["dominios"].as_str()), ("192.0.2.77", "6"));
+    assert!(r.alertas.iter().any(|a| a.regra == "user_agent_suspeito" && a.parametros["marca"] == "navegador_obsoleto"));
+
     // POST com resposta 401 não é "sem resposta", mesmo sem SYN-ACK na captura.
     let bruta = r.fluxos.iter().filter(|f| f.origem.to_string() == "203.0.113.45");
     assert!(bruta.clone().count() == 12 && bruta.into_iter().all(|f| f.estado == "aberta"));
 
     let h = &r.historia;
     assert_eq!(h.paciente_zero.map(|ip| ip.to_string()).as_deref(), Some("192.0.2.10"));
-    // O scanner atacou a mesma vítima, mas não falou com nenhum destino malicioso.
-    assert!(h.hosts_afetados.is_empty(), "{:?}", h.hosts_afetados);
+    // Os scanners atacaram a mesma vítima, mas não falaram com nenhum destino
+    // malicioso: ficam fora. Só entra o host do C2 rotativo, que tem sequência própria.
+    let afetados: Vec<String> = h.hosts_afetados.iter().map(|ip| ip.to_string()).collect();
+    assert_eq!(afetados, vec!["192.0.2.77"]);
 }
 
 #[test]
@@ -335,7 +342,7 @@ fn pacotes_aleatorios_nao_derrubam() {
 #[test]
 fn diagnostico_das_regras_quietas() {
     let r = analisar(PCAP, 1 << 20);
-    assert_eq!(r.diagnosticos.len(), 17);
+    assert_eq!(r.diagnosticos.len(), 18);
     let beacon = r.diagnosticos.iter().find(|d| d.regra == "beaconing").unwrap();
     assert!(beacon.disparou && beacon.caso.is_none());
 

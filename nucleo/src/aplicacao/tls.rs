@@ -44,6 +44,12 @@ pub fn parece_tls(c: &[u8]) -> bool {
     matches!(c, [0x16, 0x03, 0x00..=0x04, ..])
 }
 
+/// Qualquer registro TLS (troca de cifra, alerta, handshake, dados), com
+/// tamanho plausível. Serve para reconhecer TLS em conversa já em andamento.
+pub fn registro_tls(c: &[u8]) -> bool {
+    matches!(c, [0x14..=0x17, 0x03, 0x01..=0x04, a, b, ..] if u16::from_be_bytes([*a, *b]) <= 16_384 + 2048)
+}
+
 /// Lê as mensagens de handshake completas que já estão no buffer. Mensagens
 /// podem atravessar registros: os conteúdos dos registros de handshake são
 /// concatenados antes. Para no primeiro registro que não é de handshake, e

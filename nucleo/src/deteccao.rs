@@ -55,6 +55,7 @@ pub const REGRAS: &[Regra] = &[
     Regra { regra: "sondagem_udp", tecnica: Some("T1046"), fase: "descoberta", d3fend: &["D3-CAA", "D3-ISVA"] },
     Regra { regra: "certificado_suspeito", tecnica: Some("T1573.002"), fase: "comando_e_controle", d3fend: &["D3-PCA"] },
     Regra { regra: "protocolo_disfarcado", tecnica: Some("T1571"), fase: "comando_e_controle", d3fend: &["D3-PMAD"] },
+    Regra { regra: "c2_rotativo", tecnica: Some("T1008"), fase: "comando_e_controle", d3fend: &["D3-CSPP"] },
 ];
 
 fn regra(nome: &str) -> &'static Regra {
@@ -159,6 +160,7 @@ pub fn detectar(d: &Dados) -> Vec<Alerta> {
     sondagem_udp(d, &mut a);
     certificado_suspeito(d, &mut a);
     protocolo_disfarcado(d, &mut a);
+    c2_rotativo(d, &mut a);
     dga(d, &mut a);
     tunel_dns(d, &mut a);
     credencial_em_claro(d, &mut a);
@@ -238,6 +240,16 @@ fn beaconing(d: &Dados, saida: &mut Vec<Alerta>) {
     }
 }
 
+/// Caminhos de distribuição de atualização da Microsoft, que muitas vezes vêm
+/// de IPs de CDN sem nome conhecido.
+const CAMINHOS_DE_ATUALIZACAO: &[&str] =
+    &["/msdownload/update/", "/windowsupdate/", "/filestreamingservice/files/", "/d/msdownload/", "/c/msdownload/"];
+
+fn atualizacao_conhecida(url: &str) -> bool {
+    let u = url.to_ascii_lowercase();
+    CAMINHOS_DE_ATUALIZACAO.iter().any(|c| u.contains(c))
+}
+
 const EXTENSOES_EXECUTAVEIS: &[&str] = &[
     ".exe", ".dll", ".scr", ".msi", ".ps1", ".bat", ".cmd", ".vbs", ".hta", ".jar", ".lnk", ".iso", ".img", ".cpl",
 ];
@@ -274,6 +286,7 @@ fn download_executavel(d: &Dados, saida: &mut Vec<Alerta>) {
         let host = h.host.clone().unwrap_or_else(|| h.servidor.to_string());
         let host_sem_porta = host.split(':').next().unwrap_or(&host).to_owned();
         let ip_direto = host_sem_porta.parse::<IpAddr>().is_ok();
+        let atualizacao = atualizacao_conhecida(&url);
         let mut parametros = vec![("url", url), ("ip_direto", ip_direto.to_string())];
         if let Some(t) = &h.tipo_conteudo {
             parametros.push(("tipo", t.chars().take(80).collect()));
@@ -284,7 +297,7 @@ fn download_executavel(d: &Dados, saida: &mut Vec<Alerta>) {
         saida.push(alerta(
             Novo {
                 regra: "download_executavel",
-                severidade: if conhecido(&host_sem_porta) { "baixa" } else { "alta" },
+                severidade: if conhecido(&host_sem_porta) || atualizacao { "baixa" } else { "alta" },
                 host: cliente,
                 alvo: Some(host_sem_porta),
                 alvo_ip: Some(h.servidor),
@@ -862,6 +875,8 @@ fn user_agent(d: &Dados, saida: &mut Vec<Alerta>) {
             "vazio"
         } else if let Some(f) = FERRAMENTAS.iter().find(|f| minusculo.contains(*f)) {
             f
+        } else if navegador_obsoleto(&minusculo) {
+            "navegador_obsoleto"
         } else {
             continue;
         };
@@ -878,6 +893,99 @@ fn user_agent(d: &Dados, saida: &mut Vec<Alerta>) {
                 alvo: None,
                 alvo_ip: None,
                 parametros: vec![("user_agent", ua), ("marca", marca.trim_end_matches('/').into())],
+            },
+            g,
+        ));
+    }
+}
+
+/// Firefox abaixo do 78 ou Chrome abaixo do 80 (2020): ninguém navega mais
+/// com eles, mas muito malware ainda copia esses user agents.
+fn navegador_obsoleto(ua: &str) -> bool {
+    let versao = |marca: &str| -> Option<u32> {
+        let resto = &ua[ua.find(marca)? + marca.len()..];
+        resto.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()
+    };
+    // Edge e Opera também dizem "Chrome/": a versão do Chrome continua valendo.
+    versao("firefox/").is_some_and(|v| v < 78) || versao("chrome/").is_some_and(|v| v < 80)
+}
+
+/// Forma de uma requisição sem os valores: método, cada pedaço do caminho
+/// reduzido a tamanho (nomes de arquivo com ponto ficam como estão) e os nomes
+/// dos parâmetros. "POST /irpw/" e "POST /lqjm/" têm a mesma forma.
+fn forma(h: &EventoHttp) -> Option<String> {
+    let (caminho, consulta) = h.caminho.split_once('?').unwrap_or((&h.caminho, ""));
+    let pedacos: Vec<String> = caminho
+        .split('/')
+        .filter(|p| !p.is_empty())
+        .map(|p| if p.contains('.') { p.to_ascii_lowercase() } else { format!("<{}>", p.len()) })
+        .collect();
+    // Só a raiz não diz nada: muita coisa legítima pede "/".
+    if pedacos.is_empty() {
+        return None;
+    }
+    let mut nomes: Vec<&str> = consulta.split('&').filter_map(|p| p.split('=').next()).filter(|n| !n.is_empty()).collect();
+    nomes.sort_unstable();
+    Some(format!("{} /{}/?{}", h.metodo, pedacos.join("/"), nomes.join("&")))
+}
+
+/// O mesmo formato de requisição, com o mesmo user agent, para muitos domínios
+/// diferentes, quase sempre com erro: malware que espalha o contato por uma
+/// lista de domínios (muitos deles iscas) para esconder o servidor de verdade.
+fn c2_rotativo(d: &Dados, saida: &mut Vec<Alerta>) {
+    struct Rotacao {
+        hosts: BTreeSet<String>,
+        pedidos: u64,
+        erros: u64,
+        g: Grupo,
+    }
+    let mut grupos: BTreeMap<(IpAddr, String, String), Rotacao> = BTreeMap::new();
+    for h in d.http {
+        let (Some(f), Some(host)) = (forma(h), host_http(h)) else { continue };
+        if conhecido(&host) {
+            continue;
+        }
+        let ua = h.user_agent.clone().unwrap_or_default();
+        let r = grupos
+            .entry((h.cliente, ua, f))
+            .or_insert_with(|| Rotacao { hosts: BTreeSet::new(), pedidos: 0, erros: 0, g: Grupo::default() });
+        r.hosts.insert(host.to_ascii_lowercase());
+        r.pedidos += 1;
+        r.erros += u64::from(!matches!(h.status, Some(200..=399)));
+        r.g.somar(h.ts_us, h.fluxo);
+    }
+    // Um alerta por cliente: as formas (POST e GET) do mesmo malware se somam.
+    let mut por_cliente: BTreeMap<IpAddr, (BTreeSet<String>, u64, Grupo, String)> = BTreeMap::new();
+    for ((cliente, _, forma), r) in grupos {
+        if (r.hosts.len() as f64) < lim::ROTACAO_DOMINIOS || r.pedidos < 15 || r.erros * 2 < r.pedidos {
+            continue;
+        }
+        let c = por_cliente.entry(cliente).or_insert_with(|| (BTreeSet::new(), 0, Grupo::default(), forma.clone()));
+        c.0.extend(r.hosts);
+        c.1 += r.pedidos;
+        c.2.inicio = c.2.inicio.min(r.g.inicio);
+        c.2.fim = c.2.fim.max(r.g.fim);
+        for f in r.g.fluxos {
+            if c.2.fluxos.len() < MAX_EVIDENCIAS {
+                c.2.fluxos.insert(f);
+            }
+        }
+    }
+    for (cliente, (hosts, pedidos, g, forma)) in por_cliente {
+        let exemplos: Vec<&str> = hosts.iter().take(4).map(String::as_str).collect();
+        saida.push(alerta(
+            Novo {
+                regra: "c2_rotativo",
+                severidade: "alta",
+                host: cliente,
+                alvo: None,
+                alvo_ip: None,
+                parametros: vec![
+                    ("dominios", hosts.len().to_string()),
+                    ("pedidos", pedidos.to_string()),
+                    ("forma", forma.chars().take(80).collect()),
+                    ("exemplos", exemplos.join(", ")),
+                ],
             },
             g,
         ));
@@ -954,6 +1062,15 @@ mod testes {
         assert_eq!(decodificar_url("/download?file=..%2F..%2Fetc%2Fpasswd"), "/download?file=../../etc/passwd");
         assert_eq!(decodificar_url("%252e%252e%252f"), "../");
         assert_eq!(decodificar_url("a+b%zz"), "a b%zz");
+    }
+
+    #[test]
+    fn navegadores_obsoletos() {
+        assert!(navegador_obsoleto("mozilla/5.0 (windows nt 6.2; rv:39.0) gecko/20100101 firefox/39.0"));
+        assert!(navegador_obsoleto("mozilla/5.0 applewebkit/537.36 chrome/49.0.2623.112 safari/537.36"));
+        assert!(!navegador_obsoleto("mozilla/5.0 (windows nt 10.0; rv:131.0) gecko/20100101 firefox/131.0"));
+        assert!(!navegador_obsoleto("mozilla/5.0 applewebkit/537.36 chrome/130.0.0.0 safari/537.36 edg/130.0"));
+        assert!(!navegador_obsoleto("microsoft-delivery-optimization/10.1"));
     }
 
     #[test]

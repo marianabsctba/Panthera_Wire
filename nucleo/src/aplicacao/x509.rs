@@ -114,7 +114,7 @@ pub fn ler(der: &[u8]) -> Option<Certificado> {
                 let Some(&(0x04, va, vz)) = partes.last() else { continue };
                 let Some((0x30, la, lz)) = elemento(der, va).filter(|e| e.2 <= vz) else { continue };
                 for (tag, na, nz) in filhos(der, la, lz) {
-                    if tag == 0x82 && nomes.len() < 16 {
+                    if tag == 0x82 && nomes.len() < 256 {
                         nomes.push(texto_limpo(&der[na..nz], 255).to_ascii_lowercase());
                     }
                 }

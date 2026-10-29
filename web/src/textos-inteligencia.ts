@@ -286,7 +286,7 @@ const pt = {
     },
     user_agent_suspeito: {
       nome: "User agent suspeito",
-      titulo: (a) => (a.p.marca === "vazio" ? "Requisições sem user agent" : `User agent de ${a.p.marca}`),
+      titulo: (a) => (a.p.marca === "vazio" ? "Requisições sem user agent" : a.p.marca === "navegador_obsoleto" ? "User agent de navegador obsoleto" : `User agent de ${a.p.marca}`),
       frase: (a) => (a.p.marca === "vazio"
         ? `${a.h} fez requisições HTTP sem se identificar.`
         : `${a.h} fez requisições HTTP como "${a.p.user_agent}".`),
@@ -321,6 +321,12 @@ const pt = {
       titulo: (a) => `Algo que não é ${a.p.protocolo} na porta ${a.p.porta}`,
       frase: (a) => `${a.h} trocou dados com ${a.alvo} na porta ${a.p.porta} (${a.p.conexoes} ${a.p.conexoes === "1" ? "conexão" : "conexões"}), mas o conteúdo não é ${a.p.protocolo}.`,
       porque: "Usar a porta de um protocolo liberado (DNS, HTTP, HTTPS) para passar outra coisa é um jeito clássico de esconder um shell remoto ou um túnel dos filtros.",
+    },
+    c2_rotativo: {
+      nome: "Comando e controle rotativo",
+      titulo: (a) => `Mesmo pedido para ${a.p.dominios} domínios diferentes`,
+      frase: (a) => `${a.h} fez ${a.p.pedidos} requisições com o mesmo formato (${a.p.forma}) para ${a.p.dominios} domínios, como ${a.p.exemplos}, quase todas com erro.`,
+      porque: "Malware como FormBook e XLoader espalha o contato por uma lista de domínios, a maioria iscas, para esconder qual é o servidor de comando de verdade.",
     },
   } as Record<string, TextoRegra>,
 };
@@ -572,7 +578,7 @@ const en: TextosInteligencia = {
     },
     user_agent_suspeito: {
       nome: "Suspicious user agent",
-      titulo: (a) => (a.p.marca === "vazio" ? "Requests without a user agent" : `${a.p.marca} user agent`),
+      titulo: (a) => (a.p.marca === "vazio" ? "Requests without a user agent" : a.p.marca === "navegador_obsoleto" ? "Obsolete browser user agent" : `${a.p.marca} user agent`),
       frase: (a) => (a.p.marca === "vazio"
         ? `${a.h} made HTTP requests without identifying itself.`
         : `${a.h} made HTTP requests as "${a.p.user_agent}".`),
@@ -607,6 +613,12 @@ const en: TextosInteligencia = {
       titulo: (a) => `Something that is not ${a.p.protocolo} on port ${a.p.porta}`,
       frase: (a) => `${a.h} exchanged data with ${a.alvo} on port ${a.p.porta} (${a.p.conexoes} ${a.p.conexoes === "1" ? "connection" : "connections"}), but the content is not ${a.p.protocolo}.`,
       porque: "Using the port of an allowed protocol (DNS, HTTP, HTTPS) to carry something else is a classic way to hide a remote shell or a tunnel from filters.",
+    },
+    c2_rotativo: {
+      nome: "Rotating command and control",
+      titulo: (a) => `Same request to ${a.p.dominios} different domains`,
+      frase: (a) => `${a.h} made ${a.p.pedidos} requests with the same shape (${a.p.forma}) to ${a.p.dominios} domains, such as ${a.p.exemplos}, almost all of them failing.`,
+      porque: "Malware such as FormBook and XLoader spreads its contact across a list of domains, mostly decoys, to hide which one is the real command server.",
     },
   },
 };
@@ -856,7 +868,7 @@ const es: TextosInteligencia = {
     },
     user_agent_suspeito: {
       nome: "User agent sospechoso",
-      titulo: (a) => (a.p.marca === "vazio" ? "Solicitudes sin user agent" : `User agent de ${a.p.marca}`),
+      titulo: (a) => (a.p.marca === "vazio" ? "Solicitudes sin user agent" : a.p.marca === "navegador_obsoleto" ? "User agent de navegador obsoleto" : `User agent de ${a.p.marca}`),
       frase: (a) => (a.p.marca === "vazio"
         ? `${a.h} hizo solicitudes HTTP sin identificarse.`
         : `${a.h} hizo solicitudes HTTP como "${a.p.user_agent}".`),
@@ -891,6 +903,12 @@ const es: TextosInteligencia = {
       titulo: (a) => `Algo que no es ${a.p.protocolo} en el puerto ${a.p.porta}`,
       frase: (a) => `${a.h} intercambió datos con ${a.alvo} en el puerto ${a.p.porta} (${a.p.conexoes} ${a.p.conexoes === "1" ? "conexión" : "conexiones"}), pero el contenido no es ${a.p.protocolo}.`,
       porque: "Usar el puerto de un protocolo permitido (DNS, HTTP, HTTPS) para pasar otra cosa es una forma clásica de esconder un shell remoto o un túnel de los filtros.",
+    },
+    c2_rotativo: {
+      nome: "Comando y control rotativo",
+      titulo: (a) => `Mismo pedido a ${a.p.dominios} dominios distintos`,
+      frase: (a) => `${a.h} hizo ${a.p.pedidos} solicitudes con el mismo formato (${a.p.forma}) a ${a.p.dominios} dominios, como ${a.p.exemplos}, casi todas con error.`,
+      porque: "Malware como FormBook y XLoader reparte el contacto entre una lista de dominios, en su mayoría señuelos, para esconder cuál es el servidor de comando real.",
     },
   },
 };

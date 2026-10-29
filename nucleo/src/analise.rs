@@ -297,7 +297,11 @@ impl Estado {
         // Quem abriu é quem mandou o SYN. Se o primeiro pacote visto é o
         // SYN-ACK, a origem é o outro lado.
         let synack = protocolo == 6 && flags & (TCP_SYN | TCP_ACK) == (TCP_SYN | TCP_ACK);
-        let ((o, po), (d, pd), ida) = if synack { (destino, origem, false) } else { (origem, destino, true) };
+        // Sem SYN (a captura pegou a conversa no meio), o primeiro pacote pode
+        // ser do servidor: se ele sai de uma porta de serviço para uma porta
+        // alta, o servidor é a origem dele.
+        let meio = protocolo == 6 && flags & TCP_SYN == 0 && origem.1 < 1024 && destino.1 >= 1024;
+        let ((o, po), (d, pd), ida) = if synack || meio { (destino, origem, false) } else { (origem, destino, true) };
 
         let id = self.fluxos.len() as u32;
         let mut fi = FluxoInterno {
@@ -400,6 +404,9 @@ impl Estado {
         } else if tls::parece_tls(carga) {
             self.marcar(id, "TLS");
             self.tls_segmento(id, ida, o, d, seq, carga, ts);
+        } else if tls::registro_tls(carga) {
+            // Conversa TLS já em andamento quando a captura começou.
+            self.marcar(id, "TLS");
         } else if http::parece_http(carga) {
             self.http_inicio(id, ida, o.0, d.0, porta_servidor, seq, carga, ts);
         }

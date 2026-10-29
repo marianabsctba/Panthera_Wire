@@ -162,10 +162,11 @@ Os limiares são fixos e ficam no código, à vista, para a pessoa poder discord
 | `movimentacao_lateral` | SMB, RDP, WinRM, RPC ou SSH aceitos de um host interno para 3 ou mais internos | T1021 | D3-ANAA, D3-RTSD |
 | `exfiltracao_volume` | 50 MB ou mais para um destino externo, com 5 vezes mais saída que entrada | T1041 | D3-PHDURA |
 | `tls_antigo` | SSL 3.0, TLS 1.0 ou 1.1 negociados | (higiene) | D3-PMAD |
-| `user_agent_suspeito` | user agent vazio, de ferramenta (curl, PowerShell, certutil...) ou de navegador obsoleto | T1071.001 | D3-PMAD |
+| `user_agent_suspeito` | user agent vazio, de ferramenta (curl, PowerShell, certutil...), de MSIE antigo ou de navegador obsoleto (Firefox abaixo de 78, Chrome abaixo de 80) | T1071.001 | D3-PMAD |
 | `porta_incomum` | HTTP ou TLS confirmados pelo conteúdo, para fora, em porta fora do padrão | T1571 | D3-PMAD |
 | `protocolo_disfarcado` | dados numa porta de DNS, HTTP ou TLS que não são esse protocolo (64 bytes ou mais, com resposta); alta na porta 53 | T1571 | D3-PMAD |
 | `certificado_suspeito` | certificado autoassinado, vencido, ainda não válido ou emitido para outro nome, em conexão para fora | T1573.002 | D3-PCA |
+| `c2_rotativo` | o mesmo formato de requisição (método, forma do caminho, nomes dos parâmetros) e o mesmo user agent para 5 domínios ou mais, 15 pedidos ou mais, metade ou mais com erro | T1008 | D3-CSPP |
 
 Faixas de documentação e teste (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24,
 198.18.0.0/15, 2001:db8::/32) têm escopo próprio, `reservado`, e contam como
@@ -470,7 +471,22 @@ regra:
 | `imap.cap`, `telnet-cooked.pcap` | senha em claro | `credencial_em_claro` |
 | `dns-remoteshell.pcap` | shell remoto do Windows nas portas 53 e 80 | `protocolo_disfarcado` nas duas portas e o Telnet |
 
-O que essas capturas corrigiram: o shell pela porta 53 passava batido (nasceu
+| Exercício (malware-traffic-analysis.net) | O que a ferramenta mostra |
+|---|---|
+| 2026-08-09 "First to Last" | `c2_rotativo` (o mesmo POST para 15 domínios, padrão de FormBook/XLoader) e user agent de navegador de 2015 |
+| 2026-09-11 "Kongtuke" | três `beaconing` do host infectado (a cada 10 s e a cada 48 s) |
+| 2026-10-01 "Natureforce" | `download_executavel` de `runner_ilove.exe` direto de IP, por curl, em porta incomum, e algo que não é TLS na 443; história com confiança alta |
+
+O que os exercícios de infecção corrigiram: certificado da Microsoft com
+dezenas de nomes alternativos dava "emitido para outro nome" (agora são lidos
+até 256 nomes); conversa TLS já em andamento no começo da captura virava
+"protocolo disfarçado" (agora qualquer registro TLS identifica o fluxo, e um
+fluxo pego pela metade é orientado pela porta de serviço); atualização do
+Windows Defender servida por IP virava download de executável grave (agora é
+baixa); e o C2 rotativo passava batido (nasceram `c2_rotativo` e a detecção de
+navegador obsoleto no user agent). As capturas benignas seguem sem alerta.
+
+O que as capturas do Wireshark corrigiram: o shell pela porta 53 passava batido (nasceu
 a regra `protocolo_disfarcado`), e pedidos HTTP partidos em vários segmentos
 (`GET /` e o resto, como o roteador do `nb6-startup` manda) não eram lidos, o
 que gerava um falso positivo. Agora o cabeçalho HTTP do cliente é remontado

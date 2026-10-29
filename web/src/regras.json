@@ -15,5 +15,6 @@
   { "regra": "forca_bruta", "tecnica": "T1110.001", "fase": "credenciais", "d3fend": ["D3-ANET"] },
   { "regra": "sondagem_udp", "tecnica": "T1046", "fase": "descoberta", "d3fend": ["D3-CAA", "D3-ISVA"] },
   { "regra": "certificado_suspeito", "tecnica": "T1573.002", "fase": "comando_e_controle", "d3fend": ["D3-PCA"] },
-  { "regra": "protocolo_disfarcado", "tecnica": "T1571", "fase": "comando_e_controle", "d3fend": ["D3-PMAD"] }
+  { "regra": "protocolo_disfarcado", "tecnica": "T1571", "fase": "comando_e_controle", "d3fend": ["D3-PMAD"] },
+  { "regra": "c2_rotativo", "tecnica": "T1008", "fase": "comando_e_controle", "d3fend": ["D3-CSPP"] }
 ]

@@ -23,6 +23,7 @@ pub const EXFIL_MB: f64 = 50.0;
 pub const EXFIL_PROPORCAO: f64 = 5.0;
 pub const BRUTA_FALHAS: f64 = 10.0;
 pub const SONDAGEM_UDP: f64 = 20.0;
+pub const ROTACAO_DOMINIOS: f64 = 5.0;
 
 fn condicao(medida: &'static str, valor: f64, limiar: f64) -> Condicao {
     Condicao { medida, valor: (valor * 10.0).round() / 10.0, limiar, ok: valor >= limiar }

@@ -350,6 +350,22 @@ def laboratorio():
     add(46.03, cliente, servidor, 6, tcp(po, 80, PSH | ACK, b"config.xml HTTP/1.1\r\nHost: portal.example.test\r\n\r\n", seq=506))
     add(46.05, servidor, cliente, 6, tcp(80, po, PSH | ACK, b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK", seq=9001))
 
+    # C2 rotativo (como FormBook/XLoader): o mesmo POST /xxxx/ para 6 domínios,
+    # com user agent de navegador de 2015 e quase tudo respondendo 404.
+    infectado = "192.0.2.77"
+    ua_velho = b"Mozilla/5.0 (Windows NT 6.2; rv:39.0) Gecko/20100101 Firefox/39.0"
+    for k, dominio in enumerate(["aaqx1.shop", "bwer2.site", "czz3q.online", "dqwe4.cc", "erty5.info", "fgh6x.beer"]):
+        caminho = "/" + "abcdefghijklmnop"[k:k + 4] + "/"
+        for j in range(3):
+            po = 47000 + k * 10 + j
+            t = 50.0 + k * 3 + j * 0.5
+            pedido = (b"POST " + caminho.encode() + b" HTTP/1.1\r\nHost: www." + dominio.encode()
+                      + b"\r\nUser-Agent: " + ua_velho + b"\r\nContent-Length: 8\r\n\r\ndados123")
+            add(t, infectado, servidor, 6, tcp(po, 80, SYN, seq=1))
+            add(t + 0.01, servidor, infectado, 6, tcp(80, po, SYN | ACK, seq=50, ack=2))
+            add(t + 0.02, infectado, servidor, 6, tcp(po, 80, PSH | ACK, pedido, seq=2))
+            add(t + 0.03, servidor, infectado, 6, tcp(80, po, PSH | ACK, b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n", seq=51))
+
     sonda = "203.0.113.46"
     for i in range(25):
         add(32.0 + i * 0.1, sonda, servidor, 17, udp(43000 + i, 161, b"0\x26\x02\x01\x01\x04\x06public"))
