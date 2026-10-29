@@ -316,6 +316,12 @@ const pt = {
       frase: (a) => `${a.h} conectou a ${a.alvo}, que apresentou um certificado ${motivosCert("pt", a.p.motivos)}${a.p.sujeito ? ` (sujeito ${a.p.sujeito}${a.p.emissor ? `, emissor ${a.p.emissor}` : ""})` : ""}.`,
       porque: "Navegadores recusam esses certificados. Quando um programa aceita mesmo assim, costuma ser um servidor de comando montado às pressas.",
     },
+    protocolo_disfarcado: {
+      nome: "Protocolo disfarçado",
+      titulo: (a) => `Algo que não é ${a.p.protocolo} na porta ${a.p.porta}`,
+      frase: (a) => `${a.h} trocou dados com ${a.alvo} na porta ${a.p.porta} (${a.p.conexoes} ${a.p.conexoes === "1" ? "conexão" : "conexões"}), mas o conteúdo não é ${a.p.protocolo}.`,
+      porque: "Usar a porta de um protocolo liberado (DNS, HTTP, HTTPS) para passar outra coisa é um jeito clássico de esconder um shell remoto ou um túnel dos filtros.",
+    },
   } as Record<string, TextoRegra>,
 };
 
@@ -596,6 +602,12 @@ const en: TextosInteligencia = {
       frase: (a) => `${a.h} connected to ${a.alvo}, which presented a certificate that is ${motivosCert("en", a.p.motivos)}${a.p.sujeito ? ` (subject ${a.p.sujeito}${a.p.emissor ? `, issuer ${a.p.emissor}` : ""})` : ""}.`,
       porque: "Browsers reject these certificates. When a program accepts one anyway, it is often a hastily built command server.",
     },
+    protocolo_disfarcado: {
+      nome: "Disguised protocol",
+      titulo: (a) => `Something that is not ${a.p.protocolo} on port ${a.p.porta}`,
+      frase: (a) => `${a.h} exchanged data with ${a.alvo} on port ${a.p.porta} (${a.p.conexoes} ${a.p.conexoes === "1" ? "connection" : "connections"}), but the content is not ${a.p.protocolo}.`,
+      porque: "Using the port of an allowed protocol (DNS, HTTP, HTTPS) to carry something else is a classic way to hide a remote shell or a tunnel from filters.",
+    },
   },
 };
 
@@ -873,6 +885,12 @@ const es: TextosInteligencia = {
       titulo: (a) => `Certificado sospechoso en ${a.alvo}`,
       frase: (a) => `${a.h} se conectó a ${a.alvo}, que presentó un certificado ${motivosCert("es", a.p.motivos)}${a.p.sujeito ? ` (sujeto ${a.p.sujeito}${a.p.emissor ? `, emisor ${a.p.emissor}` : ""})` : ""}.`,
       porque: "Los navegadores rechazan estos certificados. Cuando un programa lo acepta igual, suele ser un servidor de comando armado a las apuradas.",
+    },
+    protocolo_disfarcado: {
+      nome: "Protocolo disfrazado",
+      titulo: (a) => `Algo que no es ${a.p.protocolo} en el puerto ${a.p.porta}`,
+      frase: (a) => `${a.h} intercambió datos con ${a.alvo} en el puerto ${a.p.porta} (${a.p.conexoes} ${a.p.conexoes === "1" ? "conexión" : "conexiones"}), pero el contenido no es ${a.p.protocolo}.`,
+      porque: "Usar el puerto de un protocolo permitido (DNS, HTTP, HTTPS) para pasar otra cosa es una forma clásica de esconder un shell remoto o un túnel de los filtros.",
     },
   },
 };

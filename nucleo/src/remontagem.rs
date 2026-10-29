@@ -21,6 +21,10 @@ impl Direcao {
         &self.dados
     }
 
+    pub fn em_bytes(self) -> Vec<u8> {
+        self.dados
+    }
+
     pub fn cheia(&self) -> bool {
         self.dados.len() >= self.limite
     }

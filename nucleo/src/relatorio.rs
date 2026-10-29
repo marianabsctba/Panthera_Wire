@@ -173,6 +173,8 @@ pub struct Fluxo {
     pub aplicacao: Option<&'static str>,
     /// A aplicação foi deduzida pela porta, não confirmada pelo conteúdo.
     pub aplicacao_por_porta: bool,
+    /// Houve dados, mas o conteúdo não foi reconhecido como nenhum protocolo.
+    pub conteudo_desconhecido: bool,
     pub estado: &'static str,
     /// Onde está o primeiro pacote do fluxo no arquivo original.
     pub offset: u64,

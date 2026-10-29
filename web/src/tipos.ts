@@ -53,6 +53,7 @@ export interface Fluxo {
   bytes_volta: number;
   aplicacao: string | null;
   aplicacao_por_porta: boolean;
+  conteudo_desconhecido: boolean;
   estado: string;
   offset: number;
 }

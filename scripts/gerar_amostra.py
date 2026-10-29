@@ -335,6 +335,21 @@ def laboratorio():
     for k, (ini, pedaco) in enumerate(pedacos):
         add(40.05 + k * 0.001, c2, cliente, 6, tcp(443, po, ACK | PSH, pedaco, seq=seq_s + ini))
 
+    # Casos das capturas reais: shell remoto na porta 53 (não é DNS) e pedido
+    # HTTP partido em dois segmentos ("GET /" e o resto), que é HTTP de verdade.
+    po, shell = 45000, "198.51.100.66"
+    add(45.0, cliente, shell, 6, tcp(po, 53, SYN, seq=100))
+    add(45.01, shell, cliente, 6, tcp(53, po, SYN | ACK, seq=7000, ack=101))
+    add(45.02, shell, cliente, 6, tcp(53, po, PSH | ACK, b"Microsoft Windows XP [Version 5.1.2600]\r\n(C) Copyright 1985-2001\r\n\r\nC:\\>", seq=7001))
+    add(45.03, cliente, shell, 6, tcp(po, 53, PSH | ACK, b"dir\n", seq=101))
+    add(45.04, shell, cliente, 6, tcp(53, po, PSH | ACK, b"dir\r\n Volume in drive C has no label.\r\n" * 3, seq=7080))
+    po = 45001
+    add(46.0, cliente, servidor, 6, tcp(po, 80, SYN, seq=500))
+    add(46.01, servidor, cliente, 6, tcp(80, po, SYN | ACK, seq=9000, ack=501))
+    add(46.02, cliente, servidor, 6, tcp(po, 80, PSH | ACK, b"GET /", seq=501))
+    add(46.03, cliente, servidor, 6, tcp(po, 80, PSH | ACK, b"config.xml HTTP/1.1\r\nHost: portal.example.test\r\n\r\n", seq=506))
+    add(46.05, servidor, cliente, 6, tcp(80, po, PSH | ACK, b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK", seq=9001))
+
     sonda = "203.0.113.46"
     for i in range(25):
         add(32.0 + i * 0.1, sonda, servidor, 17, udp(43000 + i, 161, b"0\x26\x02\x01\x01\x04\x06public"))

@@ -164,6 +164,8 @@ Os limiares são fixos e ficam no código, à vista, para a pessoa poder discord
 | `tls_antigo` | SSL 3.0, TLS 1.0 ou 1.1 negociados | (higiene) | D3-PMAD |
 | `user_agent_suspeito` | user agent vazio, de ferramenta (curl, PowerShell, certutil...) ou de navegador obsoleto | T1071.001 | D3-PMAD |
 | `porta_incomum` | HTTP ou TLS confirmados pelo conteúdo, para fora, em porta fora do padrão | T1571 | D3-PMAD |
+| `protocolo_disfarcado` | dados numa porta de DNS, HTTP ou TLS que não são esse protocolo (64 bytes ou mais, com resposta); alta na porta 53 | T1571 | D3-PMAD |
+| `certificado_suspeito` | certificado autoassinado, vencido, ainda não válido ou emitido para outro nome, em conexão para fora | T1573.002 | D3-PCA |
 
 Faixas de documentação e teste (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24,
 198.18.0.0/15, 2001:db8::/32) têm escopo próprio, `reservado`, e contam como
@@ -456,6 +458,24 @@ como fase.
 
 Cada sequência traz o motivo (`motivo`) e as fases que contaram, e a interface
 explica isso na própria história.
+
+### Calibração com capturas reais
+
+Capturas públicas, fora do repositório, rodadas no núcleo a cada mudança de
+regra:
+
+| Captura (wiki.wireshark.org) | Esperado | Resultado |
+|---|---|---|
+| `http.cap`, `dns.cap`, `nb6-startup.pcap` | tráfego normal, nenhum alerta | nenhum alerta |
+| `imap.cap`, `telnet-cooked.pcap` | senha em claro | `credencial_em_claro` |
+| `dns-remoteshell.pcap` | shell remoto do Windows nas portas 53 e 80 | `protocolo_disfarcado` nas duas portas e o Telnet |
+
+O que essas capturas corrigiram: o shell pela porta 53 passava batido (nasceu
+a regra `protocolo_disfarcado`), e pedidos HTTP partidos em vários segmentos
+(`GET /` e o resto, como o roteador do `nb6-startup` manda) não eram lidos, o
+que gerava um falso positivo. Agora o cabeçalho HTTP do cliente é remontado
+até 8 KB, e a resposta HTTP também identifica o fluxo. Os dois casos estão no
+laboratório como regressão.
 
 ### Fuzzing
 

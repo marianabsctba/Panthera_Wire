@@ -40,6 +40,8 @@ const TENTATIVAS_APLICACAO: u8 = 8;
 const REMONTAGEM_CLIENTE: usize = 16 * 1024;
 const REMONTAGEM_SERVIDOR: usize = 32 * 1024;
 const MAX_REMONTAGENS: usize = 8192;
+/// Cabeçalho HTTP partido em vários segmentos: até quanto remontar.
+const REMONTAGEM_HTTP: usize = 8 * 1024;
 
 #[derive(Serialize)]
 pub struct Progresso {
@@ -98,6 +100,8 @@ struct FluxoInterno {
     inicio_seq: [Option<u32>; 2],
     /// O handshake TLS desta direção já foi lido (ida, volta).
     tls_lido: [bool; 2],
+    /// Bytes de dados que nenhum leitor de aplicação reconheceu.
+    carga_desconhecida: u64,
 }
 
 #[derive(Default)]
@@ -129,6 +133,8 @@ struct Estado {
     tls_por_fluxo: HashMap<u32, usize>,
     /// Começo remontado de cada direção de fluxo TLS ainda sem handshake lido.
     remontagens: HashMap<(u32, bool), Direcao>,
+    /// Pedido HTTP cujo cabeçalho ainda não terminou (só o lado do cliente).
+    http_partido: HashMap<u32, Direcao>,
     total_tls: u64,
     dhcp: Vec<EventoDhcp>,
     total_dhcp: u64,
@@ -310,6 +316,7 @@ impl Estado {
                 bytes_volta: 0,
                 aplicacao: None,
                 aplicacao_por_porta: false,
+                conteudo_desconhecido: false,
                 estado: "",
                 offset,
             },
@@ -318,6 +325,7 @@ impl Estado {
             tentativas: 0,
             inicio_seq: [None; 2],
             tls_lido: [false; 2],
+            carga_desconhecida: 0,
         };
         atualizar(&mut fi, ida, flags, ts, tam);
         self.fluxos.push(fi);
@@ -343,6 +351,8 @@ impl Estado {
                 let nome = if servico(5353) { "mDNS" } else if servico(5355) { "LLMNR" } else { "DNS" };
                 self.marcar(id, nome);
                 self.evento_dns(id, o.0, d.0, m, ts);
+            } else if !carga.is_empty() {
+                self.fluxos[id as usize].carga_desconhecida += carga.len() as u64;
             }
         } else if servico(67) && servico(68) {
             if let Some(m) = dhcp::ler(carga) {
@@ -360,8 +370,10 @@ impl Estado {
             // Conexões persistentes levam várias requisições: o teste de
             // prefixo é barato e roda em todo segmento.
             Some("HTTP") => {
-                if http::parece_http(carga) {
-                    self.evento_http(id, o.0, d.0, porta_servidor, carga, ts);
+                if ida && self.http_partido.contains_key(&id) {
+                    self.http_continua(id, o.0, d.0, porta_servidor, seq, carga, ts);
+                } else if http::parece_http(carga) {
+                    self.http_inicio(id, ida, o.0, d.0, porta_servidor, seq, carga, ts);
                 }
                 return;
             }
@@ -373,7 +385,11 @@ impl Estado {
             }
             Some(_) => return,
             None if fi.tentativas >= TENTATIVAS_APLICACAO => return,
-            None => fi.tentativas += 1,
+            None => {
+                fi.tentativas += 1;
+                // Se nenhum leitor reconhecer abaixo, os bytes ficam contados.
+                fi.carga_desconhecida += carga.len() as u64;
+            }
         }
 
         if o.1 == 53 || d.1 == 53 {
@@ -385,7 +401,33 @@ impl Estado {
             self.marcar(id, "TLS");
             self.tls_segmento(id, ida, o, d, seq, carga, ts);
         } else if http::parece_http(carga) {
-            self.evento_http(id, o.0, d.0, porta_servidor, carga, ts);
+            self.http_inicio(id, ida, o.0, d.0, porta_servidor, seq, carga, ts);
+        }
+    }
+
+    /// Começo de uma mensagem HTTP. Se o pedido veio partido (o cabeçalho não
+    /// cabe no segmento), guarda para remontar até o fim do cabeçalho.
+    #[allow(clippy::too_many_arguments)]
+    fn http_inicio(&mut self, id: u32, ida: bool, o: IpAddr, d: IpAddr, porta: u16, seq: u32, carga: &[u8], ts: u64) {
+        self.marcar(id, "HTTP");
+        let incompleto = ida && !carga.starts_with(b"HTTP/") && !carga.windows(4).any(|j| j == b"\r\n\r\n");
+        if incompleto && self.http_partido.len() < MAX_REMONTAGENS {
+            let mut r = Direcao::new(seq, REMONTAGEM_HTTP);
+            r.segmento(seq, carga);
+            self.http_partido.insert(id, r);
+            return;
+        }
+        self.evento_http(id, o, d, porta, carga, ts);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn http_continua(&mut self, id: u32, o: IpAddr, d: IpAddr, porta: u16, seq: u32, carga: &[u8], ts: u64) {
+        let Some(r) = self.http_partido.get_mut(&id) else { return };
+        r.segmento(seq, carga);
+        if r.cheia() || r.dados().windows(4).any(|j| j == b"\r\n\r\n") {
+            if let Some(r) = self.http_partido.remove(&id) {
+                self.evento_http(id, o, d, porta, &r.em_bytes(), ts);
+            }
         }
     }
 
@@ -491,6 +533,7 @@ impl Estado {
                 });
             }
             Some(http::MensagemHttp::Resposta { status, tipo_conteudo, tamanho, servidor }) => {
+                self.marcar(id, "HTTP");
                 let Some(i) = self.http_pendente.get_mut(&id).and_then(VecDeque::pop_front) else { return };
                 let e = &mut self.http[i];
                 e.status = Some(status);
@@ -662,6 +705,8 @@ impl Estado {
                 let palpite = por_porta(fi.f.protocolo, fi.f.porta_destino).or(por_porta(fi.f.protocolo, fi.f.porta_origem));
                 fi.f.aplicacao = palpite;
                 fi.f.aplicacao_por_porta = palpite.is_some();
+                // 64 bytes: menos que isso pode ser resto de handshake cortado.
+                fi.f.conteudo_desconhecido = fi.carga_desconhecida >= 64;
             }
             fi.f.estado = estado(fi);
             let nome = fi.f.aplicacao.unwrap_or("Outro");

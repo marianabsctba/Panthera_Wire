@@ -130,6 +130,12 @@ fn laboratorio_com_enderecos_de_documentacao() {
         assert!(cert.parametros["motivos"].contains(m), "{:?}", cert.parametros);
     }
 
+    // Shell remoto na porta 53 é protocolo disfarçado; HTTP partido em dois
+    // segmentos é HTTP e não pode virar alerta.
+    let disfarce: Vec<&str> = r.alertas.iter().filter(|a| a.regra == "protocolo_disfarcado").map(|a| a.parametros["porta"].as_str()).collect();
+    assert_eq!(disfarce, vec!["53"], "{disfarce:?}");
+    assert!(r.http.iter().any(|h| h.caminho == "/config.xml" && h.status == Some(200)), "HTTP partido não foi remontado");
+
     // POST com resposta 401 não é "sem resposta", mesmo sem SYN-ACK na captura.
     let bruta = r.fluxos.iter().filter(|f| f.origem.to_string() == "203.0.113.45");
     assert!(bruta.clone().count() == 12 && bruta.into_iter().all(|f| f.estado == "aberta"));
@@ -329,7 +335,7 @@ fn pacotes_aleatorios_nao_derrubam() {
 #[test]
 fn diagnostico_das_regras_quietas() {
     let r = analisar(PCAP, 1 << 20);
-    assert_eq!(r.diagnosticos.len(), 16);
+    assert_eq!(r.diagnosticos.len(), 17);
     let beacon = r.diagnosticos.iter().find(|d| d.regra == "beaconing").unwrap();
     assert!(beacon.disparou && beacon.caso.is_none());
 

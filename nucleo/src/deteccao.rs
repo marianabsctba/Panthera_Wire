@@ -54,6 +54,7 @@ pub const REGRAS: &[Regra] = &[
     Regra { regra: "forca_bruta", tecnica: Some("T1110.001"), fase: "credenciais", d3fend: &["D3-ANET"] },
     Regra { regra: "sondagem_udp", tecnica: Some("T1046"), fase: "descoberta", d3fend: &["D3-CAA", "D3-ISVA"] },
     Regra { regra: "certificado_suspeito", tecnica: Some("T1573.002"), fase: "comando_e_controle", d3fend: &["D3-PCA"] },
+    Regra { regra: "protocolo_disfarcado", tecnica: Some("T1571"), fase: "comando_e_controle", d3fend: &["D3-PMAD"] },
 ];
 
 fn regra(nome: &str) -> &'static Regra {
@@ -157,6 +158,7 @@ pub fn detectar(d: &Dados) -> Vec<Alerta> {
     forca_bruta(d, &mut a);
     sondagem_udp(d, &mut a);
     certificado_suspeito(d, &mut a);
+    protocolo_disfarcado(d, &mut a);
     dga(d, &mut a);
     tunel_dns(d, &mut a);
     credencial_em_claro(d, &mut a);
@@ -515,6 +517,33 @@ fn certificado_suspeito(d: &Dados, saida: &mut Vec<Alerta>) {
                     ("sujeito", c.and_then(|c| c.sujeito.clone()).unwrap_or_default()),
                     ("emissor", c.and_then(|c| c.emissor.clone()).unwrap_or_default()),
                 ],
+            },
+            g,
+        ));
+    }
+}
+
+/// Dados trafegando numa porta de protocolo conhecido (DNS, HTTP, TLS) que
+/// não são aquele protocolo: shell remoto ou túnel usando a porta para passar
+/// por filtros. A aplicação foi deduzida só pela porta e o conteúdo não bateu.
+fn protocolo_disfarcado(d: &Dados, saida: &mut Vec<Alerta>) {
+    let mut grupos: BTreeMap<(IpAddr, IpAddr, u16, &'static str), Grupo> = BTreeMap::new();
+    for f in d.fluxos {
+        let Some(app) = f.aplicacao else { continue };
+        if f.aplicacao_por_porta && f.conteudo_desconhecido && matches!(app, "DNS" | "HTTP" | "TLS") && f.pacotes_volta > 0 {
+            grupos.entry((f.origem, f.destino, f.porta_destino, app)).or_default().somar(f.inicio_us, f.id);
+        }
+    }
+    for ((origem, destino, porta, app), g) in grupos {
+        saida.push(alerta(
+            Novo {
+                regra: "protocolo_disfarcado",
+                // DNS quase nunca tem motivo para carregar outra coisa.
+                severidade: if app == "DNS" { "alta" } else { "media" },
+                host: origem,
+                alvo: Some(d.nome_ou_ip(&destino)),
+                alvo_ip: Some(destino),
+                parametros: vec![("protocolo", app.into()), ("porta", porta.to_string()), ("conexoes", g.fluxos.len().to_string())],
             },
             g,
         ));
