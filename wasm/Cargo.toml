@@ -1,0 +1,14 @@
+[package]
+name = "panthera-wire-wasm"
+description = "Ponte do núcleo do Panthera Wire para o navegador"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+panthera-wire-nucleo = { path = "../nucleo" }
+serde_json = "1"
+# A versão precisa ser exatamente a do wasm-bindgen-cli usado no build.
+wasm-bindgen = "=0.2.129"

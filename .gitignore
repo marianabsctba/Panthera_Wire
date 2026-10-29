@@ -5,4 +5,7 @@ target/
 *.pcap
 *.pcapng
 *.cap
+!amostras/*.pcap
+!amostras/*.pcapng
+web/src/nucleo-gerado/
 .claude/
