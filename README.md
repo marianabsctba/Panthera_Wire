@@ -13,7 +13,9 @@ que merece atenção.
 - **A captura vira uma história:** o que aconteceu, em que ordem e com que
   confiança, com cada frase ligada à evidência.
 - **Anonimizador** para compartilhar capturas com a comunidade sem expor
-  pessoas, credenciais ou a rede de origem.
+  pessoas, credenciais ou a rede de origem: endereços trocados preservando a
+  rede, nomes internos mascarados, conteúdo cortado e um relatório do que
+  ainda pode identificar alguém.
 - **Nada sai do seu navegador.** Sem upload, sem servidor, sem telemetria, e
   funciona offline, inclusive em rede isolada.
 - **Capturas de vários GB**, lidas aos poucos sem travar a página.
@@ -24,7 +26,7 @@ que merece atenção.
 - **Cobertura MITRE completa:** todas as técnicas do ATT&CK Enterprise e todas
   as contramedidas do D3FEND, dizendo o que é detectado, o que é visível na rede
   e o que só se vê dentro da máquina.
-- **Exportação** em JSON, CSV de IOCs e STIX 2.1.
+- **Exportação para CTI:** JSON completo, CSV de IOCs e bundle STIX 2.1.
 - **Interface em português, inglês e espanhol.**
 
 > Em construção. O plano completo está em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
@@ -58,6 +60,11 @@ de exemplo, e `--grande 1024` gera um arquivo de cerca de 1 GB.
 
 Dados da MITRE: `python -I scripts/gerar_mitre.py <pasta>` regenera
 `web/src/mitre.json` a partir de `enterprise-attack.json` e `d3fend.json`.
+
+## Licença
+
+GPL-2.0 ou posterior (veja [LICENSE](LICENSE)). O detalhe pacote a pacote vai
+usar o Wireshark compilado para WebAssembly, que também é GPL.
 
 ## Atribuição
 

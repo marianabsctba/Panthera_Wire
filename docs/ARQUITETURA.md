@@ -270,6 +270,48 @@ arquivos de GB.
   disco.
 - O mesmo módulo do núcleo é usado pela CLI.
 
+### Como ficou (fase 3)
+
+`nucleo/src/anonimizador.rs`, exposto ao navegador como `Anonimizacao` e
+rodando em `web/src/anonimizacao.worker.ts`. A saída é sempre **pcapng**.
+
+| Item | Implementado |
+|---|---|
+| Chave | 128 bits gerados no navegador (ou informados pela pessoa); a troca é SipHash-2-4 sobre ela |
+| IPv4 / IPv6 | troca bit a bit preservando prefixo; 10/8, 172.16/12, 192.168/16, 100.64/10, 169.254/16, fe80::/64 e fc00::/7 continuam na mesma faixa. Opções: só os da rede (**padrão**, externos ficam como IOC), todos, nenhum |
+| MAC | troca consistente para endereço administrado localmente, ou mantendo o fabricante (opcional); broadcast e multicast ficam |
+| Opções IP | viram NOP (podem carregar endereços); IPv6 com cabeçalho de roteamento é removido |
+| Conteúdo | **só cabeçalhos** (padrão), ou DNS, DHCP e handshake TLS mantidos. HTTP e qualquer outro conteúdo são sempre cortados, então credenciais, cookies e tokens nunca passam |
+| DNS | nomes internos mascarados no mesmo tamanho (a mensagem continua válida, ponteiros de compressão incluídos); endereços nas respostas trocados com o mesmo mapa |
+| Nome interno | sufixos de rede local (.local, .lan, .corp, .internal...), nome sem ponto, nomes que a análise já sabe que são da rede, domínios informados pela pessoa, nomes que resolvem para IP interno, reverso de IP interno |
+| DHCP | MAC do cliente, endereços, hostname, domínio, FQDN e identificador do cliente trocados ou mascarados; sname, file e opção de fabricante zerados |
+| TLS | só a mensagem ClientHello ou ServerHello fica (o certificado, que tem nomes, sai); SNI interno mascarado |
+| ICMP | só os 8 primeiros bytes (erros carregam o cabeçalho IP original) |
+| Horários | mantidos (**padrão**) ou deslocados para 2000-01-01 mantendo os intervalos |
+| Checksums | IPv4 recalculado; TCP e UDP zerados (o conteúdo cortado não fecharia a soma) |
+| Não reconhecido | protocolo de rede desconhecido: pacote removido e contado |
+
+O relatório traz o que foi trocado, cortado e removido e os riscos que
+continuam (tamanhos e tempos, horários reais, IPs externos, fabricante, nomes
+públicos). Testes: nada de hostname, nome interno, credencial ou MAC original
+sobra na saída; a captura anonimizada continua gerando os mesmos alertas de
+beaconing, túnel DNS, exfiltração e varredura; a mesma chave dá a mesma saída.
+
+## Exportações (fase 3)
+
+Montadas no navegador a partir do relatório (`web/src/stix.ts`):
+
+- **JSON:** o relatório completo, com os campos estáveis.
+- **CSV de IOCs:** endereços, domínios e URLs, com severidade, regras,
+  técnicas, período e hosts.
+- **STIX 2.1:** `identity` (Panthera Wire), um `indicator` por IOC com padrão
+  STIX, `attack-pattern` com a referência ATT&CK, `relationship` *indicates*
+  entre eles e um `report` com o resumo da história.
+
+Só viram IOC os alvos de regras em que o alvo faz papel de atacante (comando,
+entrega, exfiltração) e os hosts de fora que atacam (varredura, ataque web). A
+vítima de uma varredura nunca vira indicador.
+
 ## Offline
 
 - **Aplicativo instalável (PWA):** manifesto e service worker que guardam todos
@@ -316,8 +358,8 @@ releases (Windows, Linux, macOS).
 | 0 | Esqueleto: repositório, CI, Pages no ar, identidade visual, três idiomas (feito) |
 | 1 | Núcleo: pcap e pcapng, fluxos, hosts, DNS, HTTP, TLS, visão geral e linha do tempo, **offline (PWA)** (feito, ver abaixo) |
 | 2 | Analisadores com ATT&CK e **história da captura**, cobertura completa ATT&CK e D3FEND (feito) |
-| 3 | **Anonimizador** e exportação JSON, CSV e STIX |
-| 4 | Protocolos de rede corporativa (SMB, Kerberos, LDAP), extração de arquivos, CLI |
+| 3 | **Anonimizador** e exportação JSON, CSV e STIX (feito) |
+| 4 | Detalhe pacote a pacote com o Wireshark (Wiregasm), protocolos de rede corporativa (SMB, Kerberos, LDAP), extração de arquivos, CLI |
 | 5 | Replay da rede, diff de capturas, regras da comunidade |
 | 6 | Experimental: perguntas em linguagem natural com IA rodando no navegador |
 | 7 | Opcional: serviço no VPS que recebe só dados derivados (IOCs, resumo), nunca o pcap |
@@ -367,6 +409,13 @@ pessoa, senão do navegador, senão inglês. Relatórios e alertas seguem o idio
 escolhido; nomes de campos nas exportações (JSON, CSV, STIX) ficam fixos em
 inglês para não quebrar integrações.
 
-## Decisões em aberto
+## Licença e Wireshark
 
-- Licença (sugestão: Apache-2.0).
+**GPL-2.0 ou posterior.** A decisão vem do detalhe pacote a pacote: em vez de
+reescrever milhares de dissectores, o Panthera Wire vai usar o Wiregasm (o
+Wireshark compilado para WebAssembly, GPL-2.0) só quando a pessoa abre um fluxo.
+O núcleo próprio continua fazendo a leitura rápida, a história, os alertas e o
+anonimizador: o Wireshark em WASM tem 69 MB (19 MB compactado) e disseca cada
+pacote em profundidade, o que não serve para a passada de GB, mas serve bem
+para os poucos pacotes de um fluxo. Ele é baixado na primeira vez que alguém
+abre um detalhe e fica guardado para uso offline.
