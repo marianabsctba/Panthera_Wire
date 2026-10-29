@@ -190,6 +190,10 @@ button.link:hover { text-decoration: underline; }
 .resumo-historia { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; }
 .resumo-historia svg { color: var(--rosa); flex: none; margin-top: 2px; }
 .cadeia-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.motivo-confianca { font-size: 13px; margin-top: 4px; }
+.explica-confianca { margin-top: 8px; font-size: 13px; }
+.explica-confianca summary { color: var(--rosa-claro); }
+.explica-confianca p { color: var(--texto-2); }
 .passos { list-style: none; margin: 12px 0 0; padding: 0 0 0 14px; border-left: 1px solid var(--borda-forte); display: flex; flex-direction: column; gap: 14px; }
 .passo { position: relative; padding-left: 12px; }
 .passo::before {

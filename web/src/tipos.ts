@@ -169,6 +169,8 @@ export interface Passo {
 export interface Cadeia {
   host: string;
   confianca: Severidade;
+  motivo: "entrega_e_controle" | "tres_fases" | "duas_graves" | "duas_fases" | "uma_grave";
+  fases: string[];
   inicio_us: number;
   fim_us: number;
   passos: Passo[];

@@ -67,6 +67,21 @@ const pt = {
     tambemDetalhe: "Hosts da rede com alertas próprios ou que falaram com os mesmos destinos maliciosos (comando, entrega, exfiltração).",
     outras: "Outras sequências",
     sequencia: (h: string) => `Sequência de ${h}`,
+    confiancaTitulo: "O que é a confiança",
+    confiancaTexto:
+      "A confiança diz o quanto os fatos de um host formam uma intrusão encadeada, e não a certeza de cada alerta. Ela olha quantas fases diferentes de um ataque apareceram e quão graves elas são. Alertas de severidade baixa entram na sequência, mas não contam como fase.",
+    confiancaRegras: [
+      "Alta: entrega (download ou acesso inicial) seguida de comando e controle em até 30 minutos; ou três fases ou mais; ou duas fases com dois ou mais alertas graves.",
+      "Média: duas fases.",
+      "Baixa: uma fase só, mas com um alerta grave.",
+    ],
+    motivo: {
+      entrega_e_controle: () => "Alta porque houve entrega seguida de comando e controle em até 30 minutos.",
+      tres_fases: (f: string) => `Alta porque apareceram três fases ou mais: ${f}.`,
+      duas_graves: (f: string) => `Alta porque são duas fases (${f}) com dois ou mais alertas graves.`,
+      duas_fases: (f: string) => `Média porque são duas fases: ${f}.`,
+      uma_grave: (f: string) => `Baixa porque é uma fase só (${f}), embora com alerta grave.`,
+    } as Record<string, (f: string) => string>,
     naoMostraTitulo: "O que esta captura não mostra",
     semSuspeitas: "Nada nesta captura se encaixa nos padrões de ataque que o Panthera Wire conhece.",
     semSuspeitasDetalhe: (hosts: string, fluxos: string, dominios: string) =>
@@ -310,6 +325,21 @@ const en: TextosInteligencia = {
     tambemDetalhe: "Network hosts with their own alerts, or that talked to the same malicious destinations (command, delivery, exfiltration).",
     outras: "Other sequences",
     sequencia: (h) => `Sequence for ${h}`,
+    confiancaTitulo: "What confidence means",
+    confiancaTexto:
+      "Confidence says how much a host's facts form a chained intrusion, not how certain each alert is. It looks at how many different attack phases showed up and how serious they are. Low severity alerts join the sequence but do not count as a phase.",
+    confiancaRegras: [
+      "High: delivery (download or initial access) followed by command and control within 30 minutes; or three or more phases; or two phases with two or more serious alerts.",
+      "Medium: two phases.",
+      "Low: a single phase, but with a serious alert.",
+    ],
+    motivo: {
+      entrega_e_controle: () => "High because delivery was followed by command and control within 30 minutes.",
+      tres_fases: (f) => `High because three or more phases showed up: ${f}.`,
+      duas_graves: (f) => `High because there are two phases (${f}) with two or more serious alerts.`,
+      duas_fases: (f) => `Medium because there are two phases: ${f}.`,
+      uma_grave: (f) => `Low because there is a single phase (${f}), even if with a serious alert.`,
+    },
     naoMostraTitulo: "What this capture does not show",
     semSuspeitas: "Nothing in this capture matches the attack patterns Panthera Wire knows.",
     semSuspeitasDetalhe: (hosts, fluxos, dominios) =>
@@ -549,6 +579,21 @@ const es: TextosInteligencia = {
     tambemDetalhe: "Hosts de la red con alertas propias o que hablaron con los mismos destinos maliciosos (comando, entrega, exfiltración).",
     outras: "Otras secuencias",
     sequencia: (h) => `Secuencia de ${h}`,
+    confiancaTitulo: "Qué es la confianza",
+    confiancaTexto:
+      "La confianza indica cuánto los hechos de un host forman una intrusión encadenada, y no la certeza de cada alerta. Mira cuántas fases distintas de un ataque aparecieron y qué tan graves son. Las alertas de severidad baja entran en la secuencia, pero no cuentan como fase.",
+    confiancaRegras: [
+      "Alta: entrega (descarga o acceso inicial) seguida de comando y control en hasta 30 minutos; o tres fases o más; o dos fases con dos o más alertas graves.",
+      "Media: dos fases.",
+      "Baja: una sola fase, pero con una alerta grave.",
+    ],
+    motivo: {
+      entrega_e_controle: () => "Alta porque hubo entrega seguida de comando y control en hasta 30 minutos.",
+      tres_fases: (f) => `Alta porque aparecieron tres fases o más: ${f}.`,
+      duas_graves: (f) => `Alta porque son dos fases (${f}) con dos o más alertas graves.`,
+      duas_fases: (f) => `Media porque son dos fases: ${f}.`,
+      uma_grave: (f) => `Baja porque es una sola fase (${f}), aunque con alerta grave.`,
+    },
     naoMostraTitulo: "Lo que esta captura no muestra",
     semSuspeitas: "Nada en esta captura coincide con los patrones de ataque que Panthera Wire conoce.",
     semSuspeitasDetalhe: (hosts, fluxos, dominios) =>

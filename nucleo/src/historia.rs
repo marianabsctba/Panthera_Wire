@@ -61,13 +61,19 @@ pub fn montar(c: &Contexto) -> Historia {
                         && c.inicio_us - e.inicio_us <= PROXIMO_US
                 })
         });
-        // Duas condutas graves em fases diferentes também sustentam confiança alta.
-        let confianca = if fases.len() >= 3 || entrega_e_controle || (fases.len() >= 2 && altas >= 2) {
-            "alta"
+        // A confiança mede o quanto os fatos formam uma intrusão encadeada,
+        // não a certeza de cada alerta. O motivo vai junto para a interface
+        // explicar.
+        let (confianca, motivo) = if entrega_e_controle {
+            ("alta", "entrega_e_controle")
+        } else if fases.len() >= 3 {
+            ("alta", "tres_fases")
+        } else if fases.len() >= 2 && altas >= 2 {
+            ("alta", "duas_graves")
         } else if fases.len() == 2 {
-            "media"
+            ("media", "duas_fases")
         } else {
-            "baixa"
+            ("baixa", "uma_grave")
         };
 
         let mut passos: Vec<Passo> = Vec::with_capacity(fatos.len());
@@ -87,6 +93,8 @@ pub fn montar(c: &Contexto) -> Historia {
         cadeias.push(Cadeia {
             host,
             confianca,
+            motivo,
+            fases: fases.iter().copied().collect(),
             inicio_us: fatos.first().map_or(0, |a| a.inicio_us),
             fim_us: fatos.iter().map(|a| a.fim_us).max().unwrap_or(0),
             passos,

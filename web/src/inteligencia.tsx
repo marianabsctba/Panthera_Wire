@@ -229,6 +229,13 @@ export function Historia({ r, nomes }: Contexto) {
               hora(principal.fim_us).slice(0, 8),
             )}
             {" "}<span className="selo suspeita">{ti.confiancas[principal.confianca]}</span>
+            <details className="explica-confianca">
+              <summary>{ti.historia.confiancaTitulo}</summary>
+              <p>{ti.historia.confiancaTexto}</p>
+              <ul className="lista">
+                {ti.historia.confiancaRegras.map((r) => <li key={r}>{r}</li>)}
+              </ul>
+            </details>
           </div>
         </div>
       ) : r.alertas.length > 0 ? (
@@ -260,6 +267,9 @@ export function Historia({ r, nomes }: Contexto) {
           <div className="cadeia-topo">
             <h3>{ti.historia.sequencia(rotulo(c.host, nomes))}</h3>
             <span className="selo">{ti.confiancas[c.confianca]}</span>
+          </div>
+          <div className="suave motivo-confianca">
+            {ti.historia.motivo[c.motivo]?.(c.fases.map((f) => ti.fases[f] ?? f).join(", ").toLowerCase())}
           </div>
           <ol className="passos">
             {c.passos.map((p) => {

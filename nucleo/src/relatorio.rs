@@ -68,6 +68,11 @@ pub struct Cadeia {
     pub host: IpAddr,
     /// baixa, media, alta
     pub confianca: &'static str,
+    /// Por que essa confiança: entrega_e_controle, tres_fases, duas_graves,
+    /// duas_fases ou uma_grave.
+    pub motivo: &'static str,
+    /// Fases que contaram (severidade baixa não conta).
+    pub fases: Vec<&'static str>,
     pub inicio_us: u64,
     pub fim_us: u64,
     pub passos: Vec<Passo>,
