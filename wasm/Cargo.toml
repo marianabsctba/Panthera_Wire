@@ -3,6 +3,7 @@ name = "panthera-wire-wasm"
 description = "Ponte do núcleo do Panthera Wire para o navegador"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 
 [lib]
 crate-type = ["cdylib"]

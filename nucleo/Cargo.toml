@@ -3,6 +3,7 @@ name = "panthera-wire-nucleo"
 description = "Leitura e análise de capturas de rede (pcap e pcapng) em blocos"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

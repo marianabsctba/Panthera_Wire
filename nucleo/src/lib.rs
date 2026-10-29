@@ -8,6 +8,7 @@
 #![forbid(unsafe_code)]
 
 mod analise;
+pub mod anonimizador;
 mod aplicacao;
 mod bytes;
 mod captura;

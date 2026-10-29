@@ -1,6 +1,7 @@
 //! Lê as capturas de `amostras/` (geradas por `scripts/gerar_amostra.py`) e
 //! confere o relatório de ponta a ponta.
 
+use panthera_wire_nucleo::anonimizador::{Anonimizador, Conteudo, Enderecos, Opcoes, RelatorioAnonimizacao};
 use panthera_wire_nucleo::{Analise, Relatorio};
 
 const PCAP: &[u8] = include_bytes!("../../amostras/exemplo.pcap");
@@ -161,6 +162,93 @@ fn bytes_corrompidos_nao_derrubam() {
             v[i] = (x >> 8) as u8;
         }
         let mut a = Analise::new();
+        let _ = a.alimentar(&v);
+        let _ = a.finalizar();
+    }
+}
+
+fn anonimizar(arquivo: &[u8], op: Opcoes) -> (Vec<u8>, RelatorioAnonimizacao) {
+    let mut a = Anonimizador::new(op).unwrap();
+    let mut saida = Vec::new();
+    for parte in arquivo.chunks(4096) {
+        saida.extend(a.alimentar(parte).unwrap());
+    }
+    let (resto, rel) = a.finalizar();
+    saida.extend(resto);
+    (saida, rel)
+}
+
+fn opcoes(conteudo: Conteudo) -> Opcoes {
+    Opcoes {
+        chave: "00112233445566778899aabbccddeeff".into(),
+        enderecos: Enderecos::Internos,
+        conteudo,
+        manter_fabricante: false,
+        deslocar_horarios: true,
+        nomes_internos: vec!["desktop-fin01".into()],
+        dominios_internos: vec![],
+    }
+}
+
+#[test]
+fn anonimizacao_tira_o_que_identifica_e_mantem_a_analise() {
+    let (saida, rel) = anonimizar(PCAP, opcoes(Conteudo::Protocolos));
+    let contem = |agulha: &[u8]| saida.windows(agulha.len()).any(|j| j == agulha);
+    assert!(!contem(b"DESKTOP-FIN01") && !contem(b"desktop-fin01"), "hostname do DHCP vazou");
+    assert!(!contem(b"intranet"), "nome interno vazou");
+    assert!(!contem(b"YWRtaW46"), "credencial vazou");
+    assert!(!contem(&[0x3c, 0x52, 0x82, 0x0a, 0x0b, 0x0c]), "MAC vazou");
+    assert!(contem(b"cdn-sync"), "nome público deveria ficar");
+
+    let r = analisar(&saida, 1 << 20);
+    assert_eq!(r.captura.formato, "pcapng");
+    assert_eq!(r.captura.pacotes + rel.pacotes_removidos, 1304);
+    assert!(r.hosts.iter().all(|h| h.ip.to_string() != "10.0.0.5"));
+    assert!(r.hosts.iter().any(|h| h.ip.to_string().starts_with("10.")), "faixa privada deveria continuar privada");
+    assert!(r.hosts.iter().any(|h| h.ip.to_string() == "198.51.100.7"), "externo deveria ficar");
+    // A captura anonimizada continua útil para análise.
+    for regra in ["beaconing", "tunel_dns", "exfiltracao_volume", "varredura_portas"] {
+        assert!(r.alertas.iter().any(|a| a.regra == regra), "{regra} sumiu depois de anonimizar");
+    }
+    // Horários deslocados para 2000-01-01.
+    assert!(r.captura.inicio_us < 1_000_000_000_000_000);
+    assert!(rel.enderecos_trocados > 0 && rel.macs_trocados > 0 && rel.nomes_mascarados > 0);
+    assert!(rel.riscos.contains(&"ips_externos"));
+}
+
+#[test]
+fn anonimizacao_consistente_pela_chave() {
+    let (a, _) = anonimizar(PCAP, opcoes(Conteudo::Protocolos));
+    let (b, _) = anonimizar(PCAP, opcoes(Conteudo::Protocolos));
+    assert_eq!(a, b);
+    let mut outra = opcoes(Conteudo::Protocolos);
+    outra.chave = "ffeeddccbbaa99887766554433221100".into();
+    assert_ne!(anonimizar(PCAP, outra).0, a);
+}
+
+#[test]
+fn so_cabecalhos_corta_todo_conteudo() {
+    let (saida, _) = anonimizar(PCAPNG, opcoes(Conteudo::Cabecalhos));
+    let r = analisar(&saida, 1 << 20);
+    let original = analisar(PCAPNG, 1 << 20);
+    assert_eq!(r.total_fluxos, original.total_fluxos);
+    assert_eq!((r.total_dns, r.total_http, r.total_tls, r.total_dhcp), (0, 0, 0, 0));
+    assert!(!saida.windows(8).any(|j| j == b"cdn-sync"));
+}
+
+#[test]
+fn anonimizar_bytes_corrompidos_nao_derruba() {
+    for semente in 0..32u32 {
+        let mut v = PCAP.to_vec();
+        let mut x = semente.wrapping_mul(2_654_435_761).wrapping_add(7);
+        for _ in 0..60 {
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            let i = 24 + (x as usize % (v.len() - 24));
+            v[i] = (x >> 8) as u8;
+        }
+        let mut a = Anonimizador::new(opcoes(Conteudo::Protocolos)).unwrap();
         let _ = a.alimentar(&v);
         let _ = a.finalizar();
     }
