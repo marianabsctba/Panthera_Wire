@@ -30,7 +30,8 @@ jobs:
         run: |
           mkdir -p corpus/${{ matrix.alvo }}
           cp fuzz/semente/* corpus/${{ matrix.alvo }}/
-          cargo fuzz run ${{ matrix.alvo }} corpus/${{ matrix.alvo }} -- -max_total_time=180 -max_len=262144 -rss_limit_mb=2048
+          # O cargo-fuzz instalado pelo CI assume musl, que não aceita o sanitizer.
+          cargo fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.alvo }} corpus/${{ matrix.alvo }} -- -max_total_time=180 -max_len=262144 -rss_limit_mb=2048
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
