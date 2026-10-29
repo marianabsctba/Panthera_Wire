@@ -21,6 +21,18 @@ interface TextoRegra {
 
 const bytes = (v: string | undefined) => tamanho(Number(v ?? 0));
 
+const MOTIVOS_CERT: Record<"pt" | "en" | "es", Record<string, string>> = {
+  pt: { autoassinado: "autoassinado", vencido: "vencido", ainda_nao_valido: "ainda não válido", nome_diferente: "emitido para outro nome" },
+  en: { autoassinado: "self-signed", vencido: "expired", ainda_nao_valido: "not yet valid", nome_diferente: "issued for another name" },
+  es: { autoassinado: "autofirmado", vencido: "vencido", ainda_nao_valido: "todavía no válido", nome_diferente: "emitido para otro nombre" },
+};
+
+function motivosCert(idioma: "pt" | "en" | "es", motivos: string | undefined): string {
+  const lista = (motivos ?? "").split(",").filter(Boolean).map((m) => MOTIVOS_CERT[idioma][m] ?? m);
+  const e = { pt: " e ", en: " and ", es: " y " }[idioma];
+  return lista.length > 1 ? `${lista.slice(0, -1).join(", ")}${e}${lista[lista.length - 1]}` : lista.join("");
+}
+
 const TIPOS_WEB: Record<"pt" | "en" | "es", Record<string, string>> = {
   pt: { traversal: "path traversal", sqli: "SQL injection", xss: "XSS", comando: "injeção de comando", log4shell: "Log4Shell" },
   en: { traversal: "path traversal", sqli: "SQL injection", xss: "XSS", comando: "command injection", log4shell: "Log4Shell" },
@@ -259,6 +271,12 @@ const pt = {
       frase: (a) => `${a.h} enviou ${a.p.pacotes} pacotes UDP para ${a.alvo} (${a.p.servicos}) sem receber resposta.`,
       porque: "Disparar pedidos a serviços como SNMP e NTP é como se descobre o que está exposto e se dá para abusar dele.",
     },
+    certificado_suspeito: {
+      nome: "Certificado suspeito",
+      titulo: (a) => `Certificado suspeito em ${a.alvo}`,
+      frase: (a) => `${a.h} conectou a ${a.alvo}, que apresentou um certificado ${motivosCert("pt", a.p.motivos)}${a.p.sujeito ? ` (sujeito ${a.p.sujeito}${a.p.emissor ? `, emissor ${a.p.emissor}` : ""})` : ""}.`,
+      porque: "Navegadores recusam esses certificados. Quando um programa aceita mesmo assim, costuma ser um servidor de comando montado às pressas.",
+    },
   } as Record<string, TextoRegra>,
 };
 
@@ -494,6 +512,12 @@ const en: TextosInteligencia = {
       frase: (a) => `${a.h} sent ${a.p.pacotes} UDP packets to ${a.alvo} (${a.p.servicos}) without any answer.`,
       porque: "Firing requests at services such as SNMP and NTP is how someone finds out what is exposed and whether it can be abused.",
     },
+    certificado_suspeito: {
+      nome: "Suspicious certificate",
+      titulo: (a) => `Suspicious certificate at ${a.alvo}`,
+      frase: (a) => `${a.h} connected to ${a.alvo}, which presented a certificate that is ${motivosCert("en", a.p.motivos)}${a.p.sujeito ? ` (subject ${a.p.sujeito}${a.p.emissor ? `, issuer ${a.p.emissor}` : ""})` : ""}.`,
+      porque: "Browsers reject these certificates. When a program accepts one anyway, it is often a hastily built command server.",
+    },
   },
 };
 
@@ -726,6 +750,12 @@ const es: TextosInteligencia = {
       titulo: (a) => `Sondeo de ${a.p.servicos} en ${a.alvo}`,
       frase: (a) => `${a.h} envió ${a.p.pacotes} paquetes UDP a ${a.alvo} (${a.p.servicos}) sin recibir respuesta.`,
       porque: "Lanzar pedidos a servicios como SNMP y NTP es la forma de descubrir qué está expuesto y si se puede abusar de ello.",
+    },
+    certificado_suspeito: {
+      nome: "Certificado sospechoso",
+      titulo: (a) => `Certificado sospechoso en ${a.alvo}`,
+      frase: (a) => `${a.h} se conectó a ${a.alvo}, que presentó un certificado ${motivosCert("es", a.p.motivos)}${a.p.sujeito ? ` (sujeto ${a.p.sujeito}${a.p.emissor ? `, emisor ${a.p.emissor}` : ""})` : ""}.`,
+      porque: "Los navegadores rechazan estos certificados. Cuando un programa lo acepta igual, suele ser un servidor de comando armado a las apuradas.",
     },
   },
 };

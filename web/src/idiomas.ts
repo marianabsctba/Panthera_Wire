@@ -104,6 +104,8 @@ const pt = {
     sni: "Nome do servidor (SNI)",
     versao: "Versão",
     alpn: "ALPN",
+    ja4: "JA4",
+    certificado: "Certificado",
     metodo: "Método",
     url: "Endereço",
     status: "Status",
@@ -127,6 +129,7 @@ const pt = {
   } as Record<string, string>,
   semResposta: "sem resposta",
   credencial: (esquema: string) => `credencial enviada (${esquema})`,
+  cert: { cifrado: "cifrado (TLS 1.3)", autoassinado: "autoassinado", vencido: "vencido", emissor: (e: string) => `emitido por ${e}` },
 
   linha: {
     dns: (c: string, q: string, tipo: string, resp: string) => `${c} consultou ${q} (${tipo})${resp ? ` → ${resp}` : ""}`,
@@ -235,6 +238,8 @@ const en: Textos = {
     sni: "Server name (SNI)",
     versao: "Version",
     alpn: "ALPN",
+    ja4: "JA4",
+    certificado: "Certificate",
     metodo: "Method",
     url: "Address",
     status: "Status",
@@ -258,6 +263,7 @@ const en: Textos = {
   },
   semResposta: "no answer",
   credencial: (esquema) => `credential sent (${esquema})`,
+  cert: { cifrado: "encrypted (TLS 1.3)", autoassinado: "self-signed", vencido: "expired", emissor: (e) => `issued by ${e}` },
 
   linha: {
     dns: (c, q, tipo, resp) => `${c} queried ${q} (${tipo})${resp ? ` → ${resp}` : ""}`,
@@ -363,6 +369,8 @@ const es: Textos = {
     sni: "Nombre del servidor (SNI)",
     versao: "Versión",
     alpn: "ALPN",
+    ja4: "JA4",
+    certificado: "Certificado",
     metodo: "Método",
     url: "Dirección",
     status: "Estado",
@@ -386,6 +394,7 @@ const es: Textos = {
   },
   semResposta: "sin respuesta",
   credencial: (esquema) => `credencial enviada (${esquema})`,
+  cert: { cifrado: "cifrado (TLS 1.3)", autoassinado: "autofirmado", vencido: "vencido", emissor: (e) => `emitido por ${e}` },
 
   linha: {
     dns: (c, q, tipo, resp) => `${c} consultó ${q} (${tipo})${resp ? ` → ${resp}` : ""}`,

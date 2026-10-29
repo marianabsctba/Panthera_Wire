@@ -133,6 +133,7 @@ tr.clicavel:hover td { background: var(--painel); }
 .menu .em-breve { margin-left: auto; font-size: 10px; letter-spacing: 0.5px; color: var(--texto-3); }
 .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .quebra { word-break: break-all; }
+.fingerprint { font-size: 11px; color: var(--texto-2); white-space: nowrap; }
 .rolagem { overflow-x: auto; }
 .barra-tabela { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
 .barra-tabela input { flex: 1; min-width: 220px; max-width: 420px; }

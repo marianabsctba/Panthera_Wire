@@ -324,7 +324,7 @@ export function Tls({ r, nomes }: Contexto) {
     <Tabela
       linhas={r.tls}
       total={r.total_tls}
-      busca={(s) => `${s.cliente} ${s.servidor} ${s.sni ?? ""} ${s.versao ?? ""} ${s.alpn.join(" ")}`}
+      busca={(s) => `${s.cliente} ${s.servidor} ${s.sni ?? ""} ${s.versao ?? ""} ${s.alpn.join(" ")} ${s.ja4 ?? ""} ${s.ja3 ?? ""} ${s.ja3s ?? ""} ${s.certificado?.sujeito ?? ""} ${s.certificado?.emissor ?? ""}`}
       colunas={[
         { titulo: t.col.hora, render: (s) => <span className="mono">{hora(s.ts_us)}</span> },
         { titulo: t.col.cliente, render: (s) => <span className="mono">{s.cliente}</span> },
@@ -332,6 +332,22 @@ export function Tls({ r, nomes }: Contexto) {
         { titulo: t.col.sni, render: (s) => <span className="mono">{s.sni}</span> },
         { titulo: t.col.versao, render: (s) => s.versao ?? <span className="fraco">{s.versao_oferecida}</span> },
         { titulo: t.col.alpn, render: (s) => s.alpn.join(", ") },
+        { titulo: t.col.ja4, render: (s) => (
+          <span className="mono fingerprint" title={`JA4 ${s.ja4 ?? ""}\nJA3 ${s.ja3 ?? ""}\nJA3S ${s.ja3s ?? ""}`}>{s.ja4}</span>
+        ) },
+        { titulo: t.col.certificado, render: (s) => {
+          const c = s.certificado;
+          if (!c) return s.versao === "TLS 1.3" ? <span className="fraco">{t.cert.cifrado}</span> : null;
+          const vencido = c.nao_depois_us !== null && c.nao_depois_us < s.ts_us;
+          return (
+            <span title={c.nomes.join(", ")}>
+              <span className="mono">{c.sujeito ?? c.nomes[0]}</span>
+              {c.emissor && <span className="fraco"> · {t.cert.emissor(c.emissor)}</span>}
+              {c.autoassinado && <span className="selo suspeita">{t.cert.autoassinado}</span>}
+              {vencido && <span className="selo andamento">{t.cert.vencido}</span>}
+            </span>
+          );
+        } },
       ]}
     />
   );

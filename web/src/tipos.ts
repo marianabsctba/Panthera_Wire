@@ -98,6 +98,20 @@ export interface EventoTls {
   versao_oferecida: string;
   versao: string | null;
   cifra: string | null;
+  ja3: string | null;
+  ja4: string | null;
+  ja3s: string | null;
+  certificado: Certificado | null;
+}
+
+export interface Certificado {
+  sujeito: string | null;
+  emissor: string | null;
+  emissor_organizacao: string | null;
+  nao_antes_us: number | null;
+  nao_depois_us: number | null;
+  autoassinado: boolean;
+  nomes: string[];
 }
 
 export interface EventoDhcp {
