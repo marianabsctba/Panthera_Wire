@@ -49,6 +49,8 @@ pub const REGRAS: &[Regra] = &[
     Regra { regra: "tls_antigo", tecnica: None, fase: "higiene", d3fend: &["D3-PMAD"] },
     Regra { regra: "user_agent_suspeito", tecnica: Some("T1071.001"), fase: "comando_e_controle", d3fend: &["D3-PMAD"] },
     Regra { regra: "porta_incomum", tecnica: Some("T1571"), fase: "comando_e_controle", d3fend: &["D3-PMAD"] },
+    Regra { regra: "forca_bruta", tecnica: Some("T1110.001"), fase: "credenciais", d3fend: &["D3-ANET"] },
+    Regra { regra: "sondagem_udp", tecnica: Some("T1046"), fase: "descoberta", d3fend: &["D3-CAA", "D3-ISVA"] },
 ];
 
 fn regra(nome: &str) -> &'static Regra {
@@ -149,6 +151,8 @@ pub fn detectar(d: &Dados) -> Vec<Alerta> {
     beaconing(d, &mut a);
     download_executavel(d, &mut a);
     ataque_web(d, &mut a);
+    forca_bruta(d, &mut a);
+    sondagem_udp(d, &mut a);
     dga(d, &mut a);
     tunel_dns(d, &mut a);
     credencial_em_claro(d, &mut a);
@@ -289,7 +293,13 @@ fn download_executavel(d: &Dados, saida: &mut Vec<Alerta>) {
 /// Cada um é procurado na URL em minúsculas e também já decodificada.
 const PADROES_WEB: &[(&str, &[&str])] = &[
     ("traversal", &["../", "..\\", "/etc/passwd", "/etc/shadow", "win.ini", "boot.ini"]),
-    ("sqli", &["union select", "' or '1'='1", "' or 1=1", "\" or 1=1", "1=1--", "sleep(", "benchmark(", "information_schema"]),
+    (
+        "sqli",
+        &[
+            "union select", "' or '1'='1", "' or 1=1", "\" or 1=1", " or 1=1", " and 1=1", "1=1--", "sleep(", "benchmark(",
+            "information_schema", "' or ''='",
+        ],
+    ),
     ("xss", &["<script", "javascript:", "onerror=", "onload=", "<svg"]),
     ("comando", &[";cat ", "|cat ", "$(", "`", ";id", "|id", "cmd.exe", "/bin/sh", "/bin/bash", "powershell"]),
     ("log4shell", &["${jndi:"]),
@@ -359,6 +369,113 @@ fn host_http(h: &EventoHttp) -> Option<String> {
     let host = h.host.as_deref()?;
     let sem_porta = if host.starts_with('[') { host } else { host.split(':').next().unwrap_or(host) };
     Some(sem_porta.to_owned()).filter(|s| !s.is_empty())
+}
+
+/// Muitas tentativas de autenticação recusadas (HTTP 401 ou 403) do mesmo
+/// cliente no mesmo servidor. Se depois vier um sucesso no mesmo caminho, a
+/// senha pode ter sido descoberta.
+fn forca_bruta(d: &Dados, saida: &mut Vec<Alerta>) {
+    struct Tentativas {
+        falhas: u64,
+        caminhos: BTreeSet<String>,
+        ultima_falha: u64,
+        sucesso_depois: bool,
+        g: Grupo,
+        host: Option<String>,
+    }
+    let mut grupos: BTreeMap<(IpAddr, IpAddr), Tentativas> = BTreeMap::new();
+    for h in d.http {
+        let caminho = h.caminho.split('?').next().unwrap_or("").to_owned();
+        let t = grupos.entry((h.cliente, h.servidor)).or_insert_with(|| Tentativas {
+            falhas: 0,
+            caminhos: BTreeSet::new(),
+            ultima_falha: 0,
+            sucesso_depois: false,
+            g: Grupo::default(),
+            host: host_http(h),
+        });
+        match h.status {
+            Some(401 | 403) => {
+                t.falhas += 1;
+                t.ultima_falha = t.ultima_falha.max(h.ts_us);
+                t.g.somar(h.ts_us, h.fluxo);
+                if t.caminhos.len() < 4 {
+                    t.caminhos.insert(caminho);
+                }
+            }
+            Some(200..=399) if t.falhas >= 10 && t.caminhos.contains(&caminho) => {
+                t.sucesso_depois = true;
+                t.g.somar(h.ts_us, h.fluxo);
+            }
+            _ => {}
+        }
+    }
+    for ((cliente, servidor), t) in grupos {
+        if t.falhas < 10 {
+            continue;
+        }
+        saida.push(alerta(
+            Novo {
+                regra: "forca_bruta",
+                severidade: if t.sucesso_depois { "alta" } else { "media" },
+                host: cliente,
+                alvo: Some(t.host.unwrap_or_else(|| d.nome_ou_ip(&servidor))),
+                alvo_ip: Some(servidor),
+                parametros: vec![
+                    ("falhas", t.falhas.to_string()),
+                    ("caminhos", t.caminhos.into_iter().collect::<Vec<_>>().join(", ")),
+                    ("sucesso", t.sucesso_depois.to_string()),
+                ],
+            },
+            t.g,
+        ));
+    }
+}
+
+/// Muitas mensagens UDP sem nenhuma resposta do mesmo host para o mesmo
+/// destino: sondagem de serviços como SNMP, NTP ou DNS.
+fn sondagem_udp(d: &Dados, saida: &mut Vec<Alerta>) {
+    let mut grupos: BTreeMap<(IpAddr, IpAddr), (u64, BTreeSet<u16>, Grupo)> = BTreeMap::new();
+    for f in d.fluxos {
+        // DNS sem resposta já é avaliado pelas regras de DNS.
+        if f.protocolo == "UDP" && f.estado == "sem_resposta" && f.porta_destino != 53 && escopo(&f.destino) != "multicast" {
+            let (n, portas, g) = grupos.entry((f.origem, f.destino)).or_default();
+            *n += f.pacotes_ida;
+            portas.insert(f.porta_destino);
+            g.somar(f.inicio_us, f.id);
+        }
+    }
+    for ((origem, destino), (pacotes, portas, g)) in grupos {
+        if g.fluxos.len() < 20 {
+            continue;
+        }
+        let nomes: Vec<String> = portas.iter().take(6).map(|p| servico_udp(*p)).collect();
+        saida.push(alerta(
+            Novo {
+                regra: "sondagem_udp",
+                severidade: "media",
+                host: origem,
+                alvo: Some(d.nome_ou_ip(&destino)),
+                alvo_ip: Some(destino),
+                parametros: vec![("pacotes", pacotes.to_string()), ("servicos", nomes.join(", "))],
+            },
+            g,
+        ));
+    }
+}
+
+fn servico_udp(porta: u16) -> String {
+    match porta {
+        69 => "TFTP".into(),
+        123 => "NTP".into(),
+        137 => "NetBIOS".into(),
+        161 | 162 => "SNMP".into(),
+        500 => "IKE".into(),
+        514 => "Syslog".into(),
+        1900 => "SSDP".into(),
+        5060 => "SIP".into(),
+        p => format!("UDP/{p}"),
+    }
 }
 
 /// Muitos domínios inexistentes consultados pelo mesmo host: típico de

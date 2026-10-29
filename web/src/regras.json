@@ -11,5 +11,7 @@
   { "regra": "exfiltracao_volume", "tecnica": "T1041", "fase": "exfiltracao", "d3fend": ["D3-PHDURA"] },
   { "regra": "tls_antigo", "tecnica": null, "fase": "higiene", "d3fend": ["D3-PMAD"] },
   { "regra": "user_agent_suspeito", "tecnica": "T1071.001", "fase": "comando_e_controle", "d3fend": ["D3-PMAD"] },
-  { "regra": "porta_incomum", "tecnica": "T1571", "fase": "comando_e_controle", "d3fend": ["D3-PMAD"] }
+  { "regra": "porta_incomum", "tecnica": "T1571", "fase": "comando_e_controle", "d3fend": ["D3-PMAD"] },
+  { "regra": "forca_bruta", "tecnica": "T1110.001", "fase": "credenciais", "d3fend": ["D3-ANET"] },
+  { "regra": "sondagem_udp", "tecnica": "T1046", "fase": "descoberta", "d3fend": ["D3-CAA", "D3-ISVA"] }
 ]

@@ -275,6 +275,22 @@ def laboratorio():
         add(8.0 + i * 0.2, cliente, dns, 17, udp(54000 + i, 53, dns_consulta(0x100 + i, f"{rotulo}.telemetry.example.test", tipo=16)))
     http(14.0, 41005, b"GET /download?file=..%2F..%2Fetc%2Fpasswd HTTP/1.1\r\nHost: portal.example.test\r\n\r\n",
          b"HTTP/1.1 403 Forbidden\r\n\r\nBLOCKED")
+
+    # Casos do segundo pcap de teste: força bruta, SQLi sem aspas, sondagem UDP
+    # e conexões cujo SYN-ACK ficou fora da captura.
+    atacante = "203.0.113.45"
+    for i in range(12):
+        po = 42000 + i
+        t = 20.0 + i * 0.5
+        add(t, atacante, servidor, 6, tcp(po, 80, SYN))
+        add(t + 0.01, atacante, servidor, 6, tcp(po, 80, PSH | ACK,
+            b"POST /login HTTP/1.1\r\nHost: portal.example.test\r\nContent-Length: 0\r\n\r\n"))
+        add(t + 0.02, servidor, atacante, 6, tcp(80, po, PSH | ACK, b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n"))
+    http(30.0, 41006, b"GET /api/v1/users?id=1%20OR%201%3D1 HTTP/1.1\r\nHost: portal.example.test\r\n\r\n",
+         b"HTTP/1.1 400 Bad Request\r\n\r\n")
+    sonda = "203.0.113.46"
+    for i in range(25):
+        add(32.0 + i * 0.1, sonda, servidor, 17, udp(43000 + i, 161, b"0\x26\x02\x01\x01\x04\x06public"))
     return [(t, q, len(q)) for t, q, _ in sorted(p, key=lambda x: x[0])]
 
 

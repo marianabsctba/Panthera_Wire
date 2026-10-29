@@ -111,6 +111,15 @@ fn laboratorio_com_enderecos_de_documentacao() {
     ] {
         assert!(achados.contains(&esperado), "faltou {esperado:?} em {achados:?}");
     }
+    // Casos do segundo pcap de teste.
+    let regras: Vec<&str> = r.alertas.iter().map(|a| a.regra).collect();
+    assert!(regras.contains(&"forca_bruta"), "{regras:?}");
+    assert!(regras.contains(&"sondagem_udp"), "{regras:?}");
+    assert!(r.alertas.iter().any(|a| a.regra == "ataque_web" && a.parametros["tipo"] == "sqli"), "{regras:?}");
+    // POST com resposta 401 não é "sem resposta", mesmo sem SYN-ACK na captura.
+    let bruta = r.fluxos.iter().filter(|f| f.origem.to_string() == "203.0.113.45");
+    assert!(bruta.clone().count() == 12 && bruta.into_iter().all(|f| f.estado == "aberta"));
+
     let h = &r.historia;
     assert_eq!(h.paciente_zero.map(|ip| ip.to_string()).as_deref(), Some("192.0.2.10"));
     // O scanner atacou a mesma vítima, mas não falou com nenhum destino malicioso.

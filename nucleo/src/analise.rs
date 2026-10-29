@@ -682,11 +682,13 @@ fn estado(fi: &FluxoInterno) -> &'static str {
     }
     let syn = fi.flags_ida & TCP_SYN != 0;
     let synack = fi.flags_volta & (TCP_SYN | TCP_ACK) == (TCP_SYN | TCP_ACK);
-    if syn && !synack {
+    // SYN sem SYN-ACK visto: só é "sem resposta" se o outro lado não mandou
+    // nada. Se mandou dados, o SYN-ACK apenas ficou fora da captura.
+    if syn && !synack && (fi.flags_volta & TCP_RST != 0 || fi.f.pacotes_volta == 0) {
         if fi.flags_volta & TCP_RST != 0 { "recusada" } else { "sem_resposta" }
     } else if (fi.flags_ida | fi.flags_volta) & (TCP_FIN | TCP_RST) != 0 {
         "encerrada"
-    } else if synack {
+    } else if synack || syn {
         "aberta"
     } else {
         // O início da conexão ficou fora da captura.

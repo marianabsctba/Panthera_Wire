@@ -43,10 +43,12 @@ pub fn montar(c: &Contexto) -> Historia {
     let mut cadeias = Vec::new();
     for (host, mut fatos) in por_host {
         fatos.sort_by_key(|a| a.inicio_us);
-        let fases: BTreeSet<&str> = fatos.iter().map(|a| a.fase).collect();
-        let tem_alta = fatos.iter().any(|a| a.severidade == "alta");
-        // Um fato isolado de baixa severidade não é história, é só um alerta.
-        if fases.len() < 2 && !tem_alta {
+        // Alertas de severidade baixa entram na sequência, mas não contam
+        // como fase: sozinhos não sustentam uma história.
+        let fases: BTreeSet<&str> = fatos.iter().filter(|a| a.severidade != "baixa").map(|a| a.fase).collect();
+        let altas = fatos.iter().filter(|a| a.severidade == "alta").count();
+        // Um fato isolado de severidade baixa ou média não é história, é só um alerta.
+        if fases.len() < 2 && altas == 0 {
             continue;
         }
 
@@ -59,7 +61,8 @@ pub fn montar(c: &Contexto) -> Historia {
                         && c.inicio_us - e.inicio_us <= PROXIMO_US
                 })
         });
-        let confianca = if fases.len() >= 3 || entrega_e_controle {
+        // Duas condutas graves em fases diferentes também sustentam confiança alta.
+        let confianca = if fases.len() >= 3 || entrega_e_controle || (fases.len() >= 2 && altas >= 2) {
             "alta"
         } else if fases.len() == 2 {
             "media"
@@ -95,9 +98,15 @@ pub fn montar(c: &Contexto) -> Historia {
         "media" => 1,
         _ => 2,
     };
-    // Mais confiança primeiro; no empate, um host da rede observada antes de
-    // um de fora, e o que começou antes.
-    cadeias.sort_by_key(|c| (peso(c.confianca), !lado_de_dentro(&c.host), c.inicio_us));
+    // Mais confiança primeiro; no empate, mais alertas graves, depois um host
+    // da rede observada antes de um de fora, e o que começou antes.
+    let gravidade: BTreeMap<u32, u32> = c
+        .alertas
+        .iter()
+        .map(|a| (a.id, match a.severidade { "alta" => 3, "media" => 2, _ => 0 }))
+        .collect();
+    let pontos = |cad: &Cadeia| -> u32 { cad.passos.iter().map(|p| gravidade.get(&p.alerta).copied().unwrap_or(0)).sum() };
+    cadeias.sort_by_key(|cad| (peso(cad.confianca), std::cmp::Reverse(pontos(cad)), !lado_de_dentro(&cad.host), cad.inicio_us));
     let paciente_zero = cadeias.first().map(|c| c.host);
 
     // Escopo: hosts com cadeia própria e hosts internos que falaram com os
