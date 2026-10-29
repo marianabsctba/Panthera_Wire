@@ -143,6 +143,59 @@ com a técnica ATT&CK quando houver.
   (T1041).
 - **Portas e serviços incomuns** para o protocolo detectado.
 
+### Regras implementadas (fase 2)
+
+Todas rodam sobre a captura inteira, antes de qualquer corte para a interface.
+Os limiares são fixos e ficam no código, à vista, para a pessoa poder discordar.
+
+| Regra | Dispara quando | ATT&CK | D3FEND aplicado |
+|---|---|---|---|
+| `beaconing` | 6 ou mais conexões de um host interno ao mesmo destino externo e porta, com intervalo mediano de 5 s ou mais e 80% dos intervalos a até 20% da mediana | T1071 | D3-PMAD |
+| `download_executavel` | resposta HTTP 2xx com extensão (.exe, .dll, .ps1, .hta...) ou tipo executável | T1105 | D3-APCA |
+| `dga` | 15 ou mais domínios distintos com NXDOMAIN para o mesmo cliente | T1568.002 | D3-DNSTA |
+| `tunel_dns` | sob o mesmo domínio: 30 ou mais nomes únicos com média de 40 caracteres, ou 30 ou mais consultas TXT | T1071.004 | D3-DNSTA |
+| `credencial_em_claro` | HTTP Basic, ou FTP, Telnet, POP3, IMAP com conexão aceita | T1552 | D3-APCA |
+| `varredura_portas` / `varredura_hosts` | 15 ou mais portas (ou hosts) com conexão sem resposta ou recusada | T1046 | D3-CAA |
+| `movimentacao_lateral` | SMB, RDP, WinRM, RPC ou SSH aceitos de um host interno para 3 ou mais internos | T1021 | D3-ANAA, D3-RTSD |
+| `exfiltracao_volume` | 50 MB ou mais para um destino externo, com 5 vezes mais saída que entrada | T1041 | D3-PHDURA |
+| `tls_antigo` | SSL 3.0, TLS 1.0 ou 1.1 negociados | (higiene) | D3-PMAD |
+| `user_agent_suspeito` | user agent vazio, de ferramenta (curl, PowerShell, certutil...) ou de navegador obsoleto | T1071.001 | D3-PMAD |
+| `porta_incomum` | HTTP ou TLS confirmados pelo conteúdo, para fora, em porta fora do padrão | T1571 | D3-PMAD |
+
+Domínios de infraestrutura muito comum (Microsoft, Google, Apple, CAs...) só
+rebaixam a severidade: o alerta nunca some. A tabela de regras existe em dois
+lugares, no núcleo (`deteccao.rs`) e na interface (`web/src/regras.json`), e um
+teste falha se os dois divergirem ou se algum ID não existir nos dados da MITRE.
+
+## Cobertura MITRE ATT&CK e D3FEND
+
+O Panthera Wire mapeia **todas** as técnicas do ATT&CK Enterprise e **todas** as
+contramedidas do D3FEND, a partir dos dados oficiais
+(`scripts/gerar_mitre.py` gera `web/src/mitre.json`, e os arquivos brutos da
+MITRE ficam fora do Git). Mapear tudo não é detectar tudo: uma captura de rede
+só vê o que passa pela rede, e a tela de cobertura diz isso para cada técnica.
+
+| Status | Critério | ATT&CK 20.0 |
+|---|---|---|
+| Detectada | alguma regra do Panthera Wire cobre a técnica (ou uma subtécnica dela) | 11 |
+| Visível na rede, sem regra ainda | a MITRE associa Network Traffic Content, Network Traffic Flow, Network Connection Creation ou Network Share Access à detecção dela | 221 |
+| Fora do alcance da rede | a MITRE não associa dados de rede à detecção (acontece dentro da máquina) ou não publicou estratégia de detecção | 474 |
+
+A segunda linha é a lista de trabalho das próximas regras.
+
+**D3FEND (1.6.0, 272 contramedidas):** o mapeamento técnica → contramedida é
+inferido pelo mesmo método do D3FEND: a técnica produz, usa ou modifica um
+artefato digital (por exemplo, `OutboundInternetNetworkTraffic`), e a defesa
+analisa, filtra ou isola esse artefato ou um mais genérico que o contém.
+Subtécnicas herdam os artefatos da técnica-mãe. Técnicas que a ontologia ainda
+não liga a nenhum artefato (como T1046) aparecem como "sem contramedida no
+D3FEND", sem inventar. Cada alerta mostra a contramedida que o próprio Panthera
+Wire aplica (7 no total, todas de detecção) e as demais como recomendação,
+agrupadas por tática defensiva.
+
+Atualizar: baixar `enterprise-attack.json` e `d3fend.json` numa pasta e rodar
+`python -I scripts/gerar_mitre.py <pasta>`.
+
 ## História da captura
 
 É a primeira tela depois que a captura termina de ser lida. Responde, em
@@ -262,7 +315,7 @@ releases (Windows, Linux, macOS).
 |---|---|
 | 0 | Esqueleto: repositório, CI, Pages no ar, identidade visual, três idiomas (feito) |
 | 1 | Núcleo: pcap e pcapng, fluxos, hosts, DNS, HTTP, TLS, visão geral e linha do tempo, **offline (PWA)** (feito, ver abaixo) |
-| 2 | Analisadores com ATT&CK e **história da captura** |
+| 2 | Analisadores com ATT&CK e **história da captura**, cobertura completa ATT&CK e D3FEND (feito) |
 | 3 | **Anonimizador** e exportação JSON, CSV e STIX |
 | 4 | Protocolos de rede corporativa (SMB, Kerberos, LDAP), extração de arquivos, CLI |
 | 5 | Replay da rede, diff de capturas, regras da comunidade |

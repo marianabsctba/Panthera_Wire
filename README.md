@@ -19,7 +19,11 @@ que merece atenção.
 - **Capturas de vários GB**, lidas aos poucos sem travar a página.
 - **Resumo antes do detalhe:** visão geral, linha do tempo, fluxos, hosts, DNS,
   TLS e HTTP.
-- **Alertas explicados**, com a técnica MITRE ATT&CK quando houver.
+- **Alertas explicados**, com a técnica MITRE ATT&CK e as contramedidas
+  MITRE D3FEND de cada um.
+- **Cobertura MITRE completa:** todas as técnicas do ATT&CK Enterprise e todas
+  as contramedidas do D3FEND, dizendo o que é detectado, o que é visível na rede
+  e o que só se vê dentro da máquina.
 - **Exportação** em JSON, CSV de IOCs e STIX 2.1.
 - **Interface em português, inglês e espanhol.**
 
@@ -51,3 +55,11 @@ cargo run --release -p panthera-wire-nucleo --example resumo -- captura.pcap
 
 Capturas de teste: `python scripts/gerar_amostra.py amostras/` gera o cenário
 de exemplo, e `--grande 1024` gera um arquivo de cerca de 1 GB.
+
+Dados da MITRE: `python -I scripts/gerar_mitre.py <pasta>` regenera
+`web/src/mitre.json` a partir de `enterprise-attack.json` e `d3fend.json`.
+
+## Atribuição
+
+MITRE ATT&CK® e MITRE D3FEND™ são da The MITRE Corporation e são usados
+conforme os termos de uso da MITRE.
