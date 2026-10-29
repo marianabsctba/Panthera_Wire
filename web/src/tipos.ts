@@ -1,0 +1,137 @@
+// Espelho de nucleo/src/relatorio.rs. Horários em microssegundos desde 1970.
+
+export interface Aviso {
+  codigo: string;
+  offset?: number;
+}
+
+export interface ResumoCaptura {
+  formato: string;
+  enlaces: string[];
+  inicio_us: number;
+  fim_us: number;
+  pacotes: number;
+  bytes: number;
+  nao_decodificados: number;
+  avisos: Aviso[];
+}
+
+export interface Contagem {
+  nome: string;
+  pacotes: number;
+  bytes: number;
+  fluxos: number;
+}
+
+export interface Host {
+  ip: string;
+  escopo: "interno" | "externo" | "multicast";
+  mac: string | null;
+  nomes: string[];
+  pacotes_enviados: number;
+  pacotes_recebidos: number;
+  bytes_enviados: number;
+  bytes_recebidos: number;
+  fluxos_iniciados: number;
+  fluxos_recebidos: number;
+  primeiro_us: number;
+  ultimo_us: number;
+}
+
+export interface Fluxo {
+  id: number;
+  protocolo: string;
+  origem: string;
+  porta_origem: number;
+  destino: string;
+  porta_destino: number;
+  inicio_us: number;
+  fim_us: number;
+  pacotes_ida: number;
+  pacotes_volta: number;
+  bytes_ida: number;
+  bytes_volta: number;
+  aplicacao: string | null;
+  aplicacao_por_porta: boolean;
+  estado: string;
+  offset: number;
+}
+
+export interface EventoDns {
+  ts_us: number;
+  fluxo: number;
+  cliente: string;
+  servidor: string;
+  consulta: string;
+  tipo: string;
+  rcode: number | null;
+  respostas: string[];
+  resposta_us: number | null;
+}
+
+export interface EventoHttp {
+  ts_us: number;
+  fluxo: number;
+  cliente: string;
+  servidor: string;
+  porta: number;
+  metodo: string;
+  host: string | null;
+  caminho: string;
+  user_agent: string | null;
+  autorizacao: string | null;
+  status: number | null;
+  tipo_conteudo: string | null;
+  tamanho: number | null;
+  servidor_http: string | null;
+}
+
+export interface EventoTls {
+  ts_us: number;
+  fluxo: number;
+  cliente: string;
+  servidor: string;
+  porta: number;
+  sni: string | null;
+  alpn: string[];
+  versao_oferecida: string;
+  versao: string | null;
+  cifra: string | null;
+}
+
+export interface EventoDhcp {
+  ts_us: number;
+  mac: string;
+  tipo: string;
+  nome_host: string | null;
+  ip: string | null;
+}
+
+export interface Relatorio {
+  captura: ResumoCaptura;
+  protocolos: Contagem[];
+  aplicacoes: Contagem[];
+  hosts: Host[];
+  total_hosts: number;
+  fluxos: Fluxo[];
+  total_fluxos: number;
+  dns: EventoDns[];
+  total_dns: number;
+  http: EventoHttp[];
+  total_http: number;
+  tls: EventoTls[];
+  total_tls: number;
+  dhcp: EventoDhcp[];
+  total_dhcp: number;
+}
+
+export interface ErroCaptura {
+  codigo: string;
+  offset: number;
+}
+
+/** Mensagens que o worker de leitura manda para a interface. */
+export type MensagemLeitura =
+  | { tipo: "progresso"; lidos: number; total: number; pacotes: number; fluxos: number }
+  | { tipo: "concluido"; relatorio: Relatorio; erro: ErroCaptura | null; segundos: number }
+  | { tipo: "falha"; mensagem: string };

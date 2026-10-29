@@ -129,6 +129,37 @@ tr.clicavel:hover td { background: var(--painel); }
 .progresso { height: 4px; background: var(--painel-2); border-radius: 2px; overflow: hidden; }
 .progresso span { display: block; height: 100%; background: var(--rosa); transition: width 0.2s; }
 
+.topo-arquivo { color: var(--texto-2); max-width: 32vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu .em-breve { margin-left: auto; font-size: 10px; letter-spacing: 0.5px; color: var(--texto-3); }
+.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.quebra { word-break: break-all; }
+.rolagem { overflow-x: auto; }
+.barra-tabela { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.barra-tabela input { flex: 1; min-width: 220px; max-width: 420px; }
+.selo svg { vertical-align: -1px; }
+td .selo { margin-left: 6px; }
+td:first-child .selo, td > .selo:only-child { margin-left: 0; }
+
+.aviso { border-color: var(--aviso); color: var(--aviso); display: flex; flex-direction: column; gap: 4px; }
+.aviso svg { vertical-align: -2px; }
+
+.leitura { max-width: 640px; display: flex; flex-direction: column; gap: 12px; }
+.leitura-rodape { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* Barras de série única: magnitude. Ponta arredondada, valor sempre escrito. */
+.barras { display: flex; flex-direction: column; gap: 6px; }
+.barra-linha { display: grid; grid-template-columns: minmax(80px, 130px) 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
+.barra-linha:hover .barra-valor { background: var(--rosa-claro); }
+.barra-nome { color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barra-trilho { height: 8px; }
+.barra-valor { display: block; height: 100%; background: var(--rosa); border-radius: 0 4px 4px 0; }
+.barra-numero { color: var(--texto); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.atualizacao {
+  position: fixed; right: 16px; bottom: 16px; z-index: 10; display: flex; align-items: center; gap: 12px;
+  background: var(--painel-2); border: 1px solid var(--rosa); border-radius: var(--raio); padding: 10px 14px;
+}
+
 .aviso-erro { background: var(--erro-fundo); border: 1px solid var(--erro); color: var(--erro); border-radius: var(--raio); padding: 10px 14px; }
 .vazio { color: var(--texto-2); padding: 30px 0; text-align: center; }
 

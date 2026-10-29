@@ -4,8 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "nucleo": "cargo build --release -p panthera-wire-wasm --target wasm32-unknown-unknown && wasm-bindgen --target web --out-dir src/nucleo-gerado ../target/wasm32-unknown-unknown/release/panthera_wire_wasm.wasm",
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run nucleo && tsc -b && vite build",
     "verificar": "tsc -b"
   },
   "dependencies": {
