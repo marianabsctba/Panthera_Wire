@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { AlertTriangle, KeyRound } from "lucide-react";
+import { AlertTriangle, KeyRound, List as ListIcon } from "lucide-react";
 import { RCODES, useTextos } from "./idiomas";
 import { dataHora, duracao, hora, numero, ponta, tamanho } from "./formatos";
 import type { Contagem, Fluxo, Host, Relatorio } from "./tipos";
@@ -12,8 +12,10 @@ export interface Contexto {
   /** Primeiro nome conhecido de cada IP (DNS, SNI, HTTP, DHCP). */
   nomes: Map<string, string>;
   segundos: number;
-  /** A captura original, para reler (anonimizar). */
+  /** A captura original, para reler (anonimizar, pacotes). */
   arquivo: File;
+  /** Abre a página de pacotes já filtrada. */
+  verPacotes: (filtro: { ips: string[]; portas: number[] }) => void;
 }
 
 // ---------- peças comuns ----------
@@ -243,7 +245,7 @@ export function LinhaDoTempo({ r, nomes }: Contexto) {
   );
 }
 
-export function Fluxos({ r, nomes }: Contexto) {
+export function Fluxos({ r, nomes, verPacotes }: Contexto) {
   const { t, idioma } = useTextos();
   return (
     <Tabela<Fluxo>
@@ -271,6 +273,14 @@ export function Fluxos({ r, nomes }: Contexto) {
         { titulo: t.col.pacotes, numerica: true, render: (f) => numero(f.pacotes_ida + f.pacotes_volta, idioma) },
         { titulo: t.col.bytes, numerica: true, render: (f) => tamanho(f.bytes_ida + f.bytes_volta) },
         { titulo: t.col.duracao, numerica: true, render: (f) => duracao(f.fim_us - f.inicio_us) },
+        { titulo: "", render: (f) => (
+          <button className="link" title={t.pacotes.ver} onClick={() => verPacotes({
+            ips: [f.origem, f.destino],
+            portas: f.porta_origem || f.porta_destino ? [f.porta_origem, f.porta_destino] : [],
+          })}>
+            <ListIcon size={14} />
+          </button>
+        ) },
       ]}
     />
   );

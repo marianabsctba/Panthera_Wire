@@ -15,6 +15,7 @@ mod captura;
 mod decodificacao;
 mod deteccao;
 mod historia;
+pub mod pacotes;
 mod remontagem;
 pub mod relatorio;
 

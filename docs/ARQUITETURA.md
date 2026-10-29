@@ -408,12 +408,62 @@ Ainda não, e por quê:
   interface recebe os 50 mil maiores fluxos e os primeiros 50 mil eventos de
   cada tipo. Descarregar para OPFS com DuckDB-WASM é o próximo passo, quando
   capturas reais mostrarem que os limites apertam.
-- **Sem remontagem TCP:** HTTP e TLS são lidos do segmento em que começam.
-  Basta para cabeçalhos e handshakes; extração de arquivos (fase 4) vai exigir
-  remontagem.
-- **Detalhe de um fluxo pacote a pacote:** o offset do primeiro pacote já é
-  guardado; a tela que relê o trecho do arquivo ainda não existe.
+- **Remontagem TCP só do handshake TLS** (veja abaixo). HTTP ainda é lido do
+  segmento em que começa; extração de arquivos vai exigir remontar o corpo.
 - **Pacote ZIP para rede isolada** nas releases.
+
+### Remontagem, fingerprints e certificado
+
+- O começo de cada direção dos fluxos TLS é remontado pela ordem do número de
+  sequência: até 16 KB do cliente e 32 KB do servidor, no máximo 8.192 ao mesmo
+  tempo, liberados assim que o handshake é lido. A base é o SYN da direção
+  quando está na captura (segmentos fora de ordem funcionam); sem SYN, o
+  primeiro segmento. Quando o handshake cabe num segmento, não há remontagem.
+- **JA3** (MD5), **JA3S** e **JA4** (FoxIO) de cada handshake, calculados só
+  para os eventos guardados. O JA4 é testado contra o exemplo oficial
+  (`t13d1516h2_8daaf6152771_e5627efa2ab1`).
+- **Certificado** do servidor no TLS 1.2: sujeito, emissor, organização,
+  validade, nomes alternativos e se é autoassinado. No TLS 1.3 o certificado
+  vai cifrado e a interface diz isso. A regra `certificado_suspeito`
+  (T1573.002, D3-PCA) avisa de certificado autoassinado, vencido, ainda não
+  válido ou emitido para outro nome, em conexões para fora.
+- Custo medido no arquivo sintético de 1 GB, que é extremo (1,3 milhão de
+  handshakes): de 4,8 s para 7,7 s no terminal (134 MB/s).
+
+### Pacotes
+
+A página **Pacotes** relê a captura e lista os pacotes no estilo do Wireshark
+(número, tempo relativo, origem, destino, protocolo, tamanho, informação), com
+as camadas decodificadas campo a campo e os bytes em hexadecimal e ASCII. Filtra
+por busca de texto (na informação, nos endereços e nos valores dos campos), por
+protocolo, IP, porta ou fluxo (botão na tabela de fluxos), 1.000 por página. A
+leitura para assim que tem o bastante, então os primeiros pacotes de um arquivo
+de GB aparecem rápido. Os nomes dos campos seguem a convenção do Wireshark. O
+valor de `Authorization` e `Cookie` não aparece decodificado (está nos bytes).
+A dissecação profunda de milhares de protocolos fica para o Wiregasm.
+
+### Confiança da história
+
+Mede o quanto os fatos de um host formam uma intrusão encadeada, não a certeza
+de cada alerta. Alertas de severidade baixa entram na sequência mas não contam
+como fase.
+
+| Confiança | Quando |
+|---|---|
+| Alta | entrega (download ou acesso inicial) seguida de comando e controle em até 30 minutos; ou três fases ou mais; ou duas fases com dois ou mais alertas graves |
+| Média | duas fases |
+| Baixa | uma fase só, com alerta grave |
+
+Cada sequência traz o motivo (`motivo`) e as fases que contaram, e a interface
+explica isso na própria história.
+
+### Fuzzing
+
+`fuzz/` tem três alvos para `cargo-fuzz` (arquivo inteiro em blocos de tamanho
+variado, pacote único em qualquer tipo de enlace, e o anonimizador conferindo
+que a saída continua legível), rodando no CI do Linux a cada mudança no núcleo
+e toda semana. Nos testes normais, 3.000 pacotes aleatórios passam pela análise
+e pelo anonimizador em qualquer sistema.
 
 ## Idiomas
 

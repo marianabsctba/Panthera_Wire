@@ -20,7 +20,8 @@ que merece atenção.
   funciona offline, inclusive em rede isolada.
 - **Capturas de vários GB**, lidas aos poucos sem travar a página.
 - **Resumo antes do detalhe:** visão geral, linha do tempo, fluxos, hosts, DNS,
-  TLS e HTTP.
+  TLS (com JA3, JA4 e certificado) e HTTP, e os **pacotes** um a um, com camadas
+  e bytes, quando precisar descer até lá.
 - **Alertas explicados**, com a técnica MITRE ATT&CK e as contramedidas
   MITRE D3FEND de cada um.
 - **Cobertura MITRE completa:** todas as técnicas do ATT&CK Enterprise e todas

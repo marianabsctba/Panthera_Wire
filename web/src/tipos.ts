@@ -221,3 +221,50 @@ export type MensagemLeitura =
   | { tipo: "progresso"; lidos: number; total: number; pacotes: number; fluxos: number }
   | { tipo: "concluido"; relatorio: Relatorio; erro: ErroCaptura | null; segundos: number }
   | { tipo: "falha"; mensagem: string };
+
+/** Espelho de `Filtro` em nucleo/src/pacotes.rs. */
+export interface FiltroPacotes {
+  ips: string[];
+  portas: number[];
+  protocolo?: string;
+  texto?: string;
+  pular: number;
+  limite: number;
+}
+
+export interface CampoPacote {
+  nome: string;
+  valor: string;
+}
+
+export interface CamadaPacote {
+  nome: string;
+  campos: CampoPacote[];
+}
+
+export interface Pacote {
+  numero: number;
+  offset: number;
+  ts_us: number;
+  tamanho: number;
+  capturado: number;
+  origem: string;
+  destino: string;
+  protocolo: string;
+  info: string;
+  camadas: CamadaPacote[];
+  /** Hexadecimal, até 4 KB. */
+  bytes: string;
+}
+
+export interface ResultadoPacotes {
+  pacotes: Pacote[];
+  encontrados: number;
+  tem_mais: boolean;
+  erro: ErroCaptura | null;
+}
+
+export type MensagemPacotes =
+  | { tipo: "progresso"; lidos: number; total: number }
+  | { tipo: "concluido"; resultado: ResultadoPacotes }
+  | { tipo: "falha"; mensagem: string };

@@ -230,6 +230,24 @@ button.link:hover { text-decoration: underline; }
 .celula .subs .marca-status { width: 6px; height: 6px; }
 .detalhe-tecnica { display: flex; flex-direction: column; gap: 8px; border-color: var(--borda-forte); }
 
+/* Pacotes */
+.pacotes { display: grid; grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); gap: 12px; align-items: start; }
+.lista-pacotes { max-height: 70vh; overflow: auto; padding: 0; }
+.lista-pacotes table { font-size: 12px; }
+.lista-pacotes th { position: sticky; top: 0; background: var(--painel); z-index: 1; }
+.lista-pacotes td { padding: 4px 8px; white-space: nowrap; }
+.lista-pacotes .acoes-linha { padding: 8px; }
+tr.escolhido td { background: var(--rosa-fundo); }
+.info-pacote { max-width: 520px; overflow: hidden; text-overflow: ellipsis; }
+.detalhe-pacote { position: sticky; top: 0; max-height: 80vh; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.camada { border-top: 1px solid var(--borda); padding-top: 6px; }
+.camada-titulo { color: var(--texto); font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
+.camada table { font-size: 12px; }
+.camada td { padding: 2px 8px; border: 0; word-break: break-all; }
+.campo-nome { white-space: nowrap; width: 1%; }
+pre.codigo.hex { font-size: 11px; white-space: pre; word-break: normal; max-height: 360px; }
+@media (max-width: 1100px) { .pacotes { grid-template-columns: 1fr; } .detalhe-pacote { position: static; } }
+
 /* Exportar */
 .formulario-anon { display: flex; flex-direction: column; gap: 12px; }
 .formulario-anon > input { max-width: 420px; }

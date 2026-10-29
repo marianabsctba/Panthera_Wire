@@ -4,8 +4,34 @@
 #![forbid(unsafe_code)]
 
 use panthera_wire_nucleo::anonimizador::{Anonimizador, Opcoes};
+use panthera_wire_nucleo::pacotes::{Filtro, ListaPacotes};
 use panthera_wire_nucleo::Analise;
 use wasm_bindgen::prelude::*;
+
+/// Lista de pacotes que passam num filtro, com camadas e bytes.
+#[wasm_bindgen]
+pub struct Pacotes {
+    l: Option<ListaPacotes>,
+}
+
+#[wasm_bindgen]
+impl Pacotes {
+    /// `filtro` em JSON (ver `Filtro` no núcleo).
+    #[wasm_bindgen(constructor)]
+    pub fn new(filtro: &str) -> Result<Pacotes, JsValue> {
+        let f: Filtro = serde_json::from_str(filtro).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        Ok(Pacotes { l: Some(ListaPacotes::new(f)) })
+    }
+
+    /// Processa um bloco. `false` quando já encontrou o bastante.
+    pub fn alimentar(&mut self, bloco: &[u8]) -> bool {
+        self.l.as_mut().is_some_and(|l| l.alimentar(bloco))
+    }
+
+    pub fn finalizar(&mut self) -> String {
+        self.l.take().map(|l| serde_json::to_string(&l.finalizar()).unwrap_or_default()).unwrap_or_default()
+    }
+}
 
 #[wasm_bindgen]
 pub struct Anonimizacao {

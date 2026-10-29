@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import {
   Activity, AlertTriangle, BookOpen, Clock, Download, FileUp, Globe, Languages, LayoutDashboard, LayoutGrid, Lock,
-  Network, Server, ShieldCheck, X,
+  List, Network, Server, ShieldCheck, X,
 } from "lucide-react";
 import { ContextoIdioma, IDIOMAS, TEXTOS, idiomaInicial, salvarIdioma, type Idioma, type Textos } from "./idiomas";
 import { numero, tamanho } from "./formatos";
 import { Dns, Fluxos, Hosts, Http, LinhaDoTempo, Tls, VisaoGeral, type Contexto } from "./paginas";
 import { Alertas, Cobertura, Historia } from "./inteligencia";
 import { Exportar } from "./exportar";
+import { Pacotes } from "./pacotes";
 import type { MensagemLeitura, Relatorio } from "./tipos";
 import AvisoAtualizacao from "./AvisoAtualizacao";
 
@@ -22,6 +23,7 @@ const MENU: { chave: Pagina; icone: typeof Activity; pronta: boolean }[] = [
   { chave: "alertas", icone: AlertTriangle, pronta: true },
   { chave: "linhaDoTempo", icone: Clock, pronta: true },
   { chave: "fluxos", icone: Activity, pronta: true },
+  { chave: "pacotes", icone: List, pronta: true },
   { chave: "hosts", icone: Server, pronta: true },
   { chave: "dns", icone: Globe, pronta: true },
   { chave: "tls", icone: Lock, pronta: true },
@@ -57,6 +59,7 @@ export default function App() {
   const [estado, setEstado] = useState<Estado>({ fase: "inicio" });
   const [pagina, setPagina] = useState<Pagina>("abrir");
   const [arrastando, setArrastando] = useState(false);
+  const [filtroPacotes, setFiltroPacotes] = useState<{ ips: string[]; portas: number[] } | null>(null);
   const seletor = useRef<HTMLInputElement>(null);
   const worker = useRef<Worker | null>(null);
   const conteudo = useRef<HTMLElement>(null);
@@ -187,7 +190,7 @@ export default function App() {
               </>
             )}
 
-            {!SEM_CAPTURA.includes(pagina) && estado.fase === "pronto" && Pagina && (
+            {!SEM_CAPTURA.includes(pagina) && estado.fase === "pronto" && (Pagina || pagina === "pacotes") && (
               <>
                 <div className="cabecalho">
                   <h1>{t.menu[pagina]}</h1>
@@ -195,7 +198,20 @@ export default function App() {
                     <button onClick={() => setPagina("abrir")}><FileUp size={15} /> {t.abrirOutra}</button>
                   </div>
                 </div>
-                <Pagina r={estado.relatorio} nomes={nomes} segundos={estado.segundos} arquivo={estado.arquivo} />
+                {pagina === "pacotes" ? (
+                  <Pacotes r={estado.relatorio} arquivo={estado.arquivo} filtroInicial={filtroPacotes} limparFiltro={() => setFiltroPacotes(null)} />
+                ) : Pagina && (
+                  <Pagina
+                    r={estado.relatorio}
+                    nomes={nomes}
+                    segundos={estado.segundos}
+                    arquivo={estado.arquivo}
+                    verPacotes={(f: { ips: string[]; portas: number[] }) => {
+                      setFiltroPacotes(f);
+                      setPagina("pacotes");
+                    }}
+                  />
+                )}
               </>
             )}
 
