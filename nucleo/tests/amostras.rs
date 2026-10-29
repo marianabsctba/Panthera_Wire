@@ -116,6 +116,20 @@ fn laboratorio_com_enderecos_de_documentacao() {
     assert!(regras.contains(&"forca_bruta"), "{regras:?}");
     assert!(regras.contains(&"sondagem_udp"), "{regras:?}");
     assert!(r.alertas.iter().any(|a| a.regra == "ataque_web" && a.parametros["tipo"] == "sqli"), "{regras:?}");
+    // TLS 1.2 partido em segmentos (um fora de ordem): remontado e lido.
+    let t = r.tls.iter().find(|t| t.servidor.to_string() == "203.0.113.80").expect("handshake não lido");
+    assert_eq!(t.sni.as_deref(), Some("painel.example.test"));
+    assert_eq!(t.versao.as_deref(), Some("TLS 1.2"));
+    assert!(t.ja4.as_deref().unwrap().starts_with("t13d"), "{:?}", t.ja4);
+    assert_eq!(t.ja3.as_deref().map(str::len), Some(32));
+    let c = t.certificado.as_ref().expect("certificado não lido");
+    assert!(c.autoassinado);
+    assert_eq!(c.sujeito.as_deref(), Some("acme-c2"));
+    let cert = r.alertas.iter().find(|a| a.regra == "certificado_suspeito").expect("sem alerta de certificado");
+    for m in ["autoassinado", "nome_diferente", "vencido"] {
+        assert!(cert.parametros["motivos"].contains(m), "{:?}", cert.parametros);
+    }
+
     // POST com resposta 401 não é "sem resposta", mesmo sem SYN-ACK na captura.
     let bruta = r.fluxos.iter().filter(|f| f.origem.to_string() == "203.0.113.45");
     assert!(bruta.clone().count() == 12 && bruta.into_iter().all(|f| f.estado == "aberta"));

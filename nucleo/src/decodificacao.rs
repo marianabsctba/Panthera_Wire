@@ -23,7 +23,7 @@ pub struct Ip<'a> {
 
 #[derive(Clone, Copy)]
 pub enum Transporte<'a> {
-    Tcp { origem: u16, destino: u16, flags: u8, carga: &'a [u8] },
+    Tcp { origem: u16, destino: u16, seq: u32, flags: u8, carga: &'a [u8] },
     Udp { origem: u16, destino: u16, carga: &'a [u8] },
     Icmp { v6: bool },
     /// Fragmento IP que não é o primeiro: não carrega cabeçalho de transporte.
@@ -204,6 +204,7 @@ fn transporte(protocolo: u8, c: &[u8]) -> Transporte<'_> {
             Some(Transporte::Tcp {
                 origem: u16be(c, 0)?,
                 destino: u16be(c, 2)?,
+                seq: u32be(c, 4)?,
                 flags: u8_em(c, 13)?,
                 carga: c.get(cabecalho.max(20)..).unwrap_or(&[]),
             })

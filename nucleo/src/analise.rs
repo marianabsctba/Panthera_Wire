@@ -7,7 +7,8 @@ use std::net::IpAddr;
 
 use serde::Serialize;
 
-use crate::aplicacao::{dhcp, dns, http, tls};
+use crate::aplicacao::{dhcp, dns, http, tls, x509};
+use crate::remontagem::Direcao;
 use crate::bytes::mac_texto;
 use crate::captura::{ErroCaptura, LeitorCaptura, PacoteBruto};
 use crate::decodificacao::{self as dec, Rede, Transporte, TCP_ACK, TCP_FIN, TCP_RST, TCP_SYN};
@@ -34,6 +35,11 @@ const INATIVIDADE_UDP_US: u64 = 60_000_000;
 /// Quantos segmentos com dados de um fluxo TCP são inspecionados até
 /// desistir de reconhecer a aplicação.
 const TENTATIVAS_APLICACAO: u8 = 8;
+
+// Remontagem do handshake TLS: quanto de cada direção, e quantas ao mesmo tempo.
+const REMONTAGEM_CLIENTE: usize = 16 * 1024;
+const REMONTAGEM_SERVIDOR: usize = 32 * 1024;
+const MAX_REMONTAGENS: usize = 8192;
 
 #[derive(Serialize)]
 pub struct Progresso {
@@ -87,6 +93,11 @@ struct FluxoInterno {
     flags_ida: u8,
     flags_volta: u8,
     tentativas: u8,
+    /// Primeiro número de sequência de dados de cada direção (ida, volta),
+    /// tirado do SYN ou do SYN-ACK: é a base da remontagem.
+    inicio_seq: [Option<u32>; 2],
+    /// O handshake TLS desta direção já foi lido (ida, volta).
+    tls_lido: [bool; 2],
 }
 
 #[derive(Default)]
@@ -116,6 +127,8 @@ struct Estado {
     total_http: u64,
     tls: Vec<EventoTls>,
     tls_por_fluxo: HashMap<u32, usize>,
+    /// Começo remontado de cada direção de fluxo TLS ainda sem handshake lido.
+    remontagens: HashMap<(u32, bool), Direcao>,
     total_tls: u64,
     dhcp: Vec<EventoDhcp>,
     total_dhcp: u64,
@@ -183,10 +196,15 @@ impl Estado {
                 else {
                     return;
                 };
+                if let Transporte::Tcp { seq, flags, .. } = ip.transporte {
+                    if flags & TCP_SYN != 0 {
+                        self.fluxos[id as usize].inicio_seq[usize::from(!ida)] = Some(seq.wrapping_add(1));
+                    }
+                }
                 match ip.transporte {
                     Transporte::Udp { carga, .. } => self.udp(id, (ip.origem, po), (ip.destino, pd), carga, ts),
-                    Transporte::Tcp { carga, .. } if !carga.is_empty() => {
-                        self.tcp(id, ida, (ip.origem, po), (ip.destino, pd), carga, ts)
+                    Transporte::Tcp { seq, carga, .. } if !carga.is_empty() => {
+                        self.tcp(id, ida, (ip.origem, po), (ip.destino, pd), seq, carga, ts)
                     }
                     _ => {}
                 }
@@ -298,6 +316,8 @@ impl Estado {
             flags_ida: 0,
             flags_volta: 0,
             tentativas: 0,
+            inicio_seq: [None; 2],
+            tls_lido: [false; 2],
         };
         atualizar(&mut fi, ida, flags, ts, tam);
         self.fluxos.push(fi);
@@ -332,7 +352,8 @@ impl Estado {
         }
     }
 
-    fn tcp(&mut self, id: u32, ida: bool, o: (IpAddr, u16), d: (IpAddr, u16), carga: &[u8], ts: u64) {
+    #[allow(clippy::too_many_arguments)]
+    fn tcp(&mut self, id: u32, ida: bool, o: (IpAddr, u16), d: (IpAddr, u16), seq: u32, carga: &[u8], ts: u64) {
         let fi = &mut self.fluxos[id as usize];
         let (aplicacao, porta_servidor) = (fi.f.aplicacao, fi.f.porta_destino);
         match aplicacao {
@@ -344,11 +365,10 @@ impl Estado {
                 }
                 return;
             }
+            // Os segmentos seguintes do handshake não começam com 0x16: vão
+            // para a remontagem até o handshake ser lido.
             Some("TLS") => {
-                if !ida && fi.tentativas < TENTATIVAS_APLICACAO && tls::parece_tls(carga) {
-                    fi.tentativas += 1;
-                    self.evento_tls(id, o, d, carga, ts);
-                }
+                self.tls_segmento(id, ida, o, d, seq, carga, ts);
                 return;
             }
             Some(_) => return,
@@ -362,7 +382,8 @@ impl Estado {
                 self.evento_dns(id, o.0, d.0, m, ts);
             }
         } else if tls::parece_tls(carga) {
-            self.evento_tls(id, o, d, carga, ts);
+            self.marcar(id, "TLS");
+            self.tls_segmento(id, ida, o, d, seq, carga, ts);
         } else if http::parece_http(carga) {
             self.evento_http(id, o.0, d.0, porta_servidor, carga, ts);
         }
@@ -481,44 +502,119 @@ impl Estado {
         }
     }
 
-    fn evento_tls(&mut self, id: u32, o: (IpAddr, u16), d: (IpAddr, u16), carga: &[u8], ts: u64) {
-        match tls::ler(carga) {
-            Some(tls::MensagemTls::ClientHello { versao, sni, alpn }) => {
-                self.marcar(id, "TLS");
-                if self.tls_por_fluxo.contains_key(&id) {
-                    return;
-                }
-                if let Some(s) = &sni {
-                    self.aprender_nome(d.0, s);
-                }
-                self.total_tls += 1;
-                if !self.cabe_evento(self.tls.len()) {
-                    return;
-                }
-                self.tls_por_fluxo.insert(id, self.tls.len());
-                self.tls.push(EventoTls {
-                    ts_us: ts,
-                    fluxo: id,
-                    cliente: o.0,
-                    servidor: d.0,
-                    porta: d.1,
-                    sni,
-                    alpn,
-                    versao_oferecida: tls::nome_versao(versao),
-                    versao: None,
-                    cifra: None,
-                });
-            }
-            Some(tls::MensagemTls::ServerHello { versao, cifra }) => {
-                self.marcar(id, "TLS");
-                if let Some(&i) = self.tls_por_fluxo.get(&id) {
-                    let e = &mut self.tls[i];
-                    e.versao.get_or_insert_with(|| tls::nome_versao(versao));
-                    e.cifra.get_or_insert_with(|| format!("0x{cifra:04x}"));
-                }
-            }
-            None => {}
+    #[allow(clippy::too_many_arguments)]
+    fn tls_segmento(&mut self, id: u32, ida: bool, o: (IpAddr, u16), d: (IpAddr, u16), seq: u32, carga: &[u8], ts: u64) {
+        let lado = usize::from(!ida);
+        if self.fluxos[id as usize].tls_lido[lado] {
+            return;
         }
+        let chave = (id, ida);
+        let lido = |e: &mut Self| {
+            e.remontagens.remove(&chave);
+            e.fluxos[id as usize].tls_lido[lado] = true;
+        };
+
+        if !self.remontagens.contains_key(&chave) {
+            let limite = if ida { REMONTAGEM_CLIENTE } else { REMONTAGEM_SERVIDOR };
+            // Base: o SYN da direção, se estiver na captura e o segmento cair
+            // na janela dele; senão, o primeiro segmento (captura começou no
+            // meio, ou números de sequência que não seguem o SYN).
+            let base = self.fluxos[id as usize].inicio_seq[lado]
+                .filter(|isn| (seq.wrapping_sub(*isn) as usize) < limite)
+                .unwrap_or(seq);
+            // Caminho rápido, o mais comum: o handshake desta direção cabe
+            // inteiro no primeiro segmento e não precisa de remontagem.
+            if seq == base {
+                let (msgs, acabou) = tls::mensagens(carga);
+                if self.tls_mensagens(id, o, d, msgs, ts) || acabou {
+                    lido(self);
+                    return;
+                }
+            }
+            if self.remontagens.len() >= MAX_REMONTAGENS {
+                // Sem espaço para remontar: fica o que deu para ler do segmento.
+                return;
+            }
+            self.remontagens.insert(chave, Direcao::new(base, limite));
+        }
+
+        let Some(r) = self.remontagens.get_mut(&chave) else { return };
+        if !r.segmento(seq, carga) {
+            return;
+        }
+        let cheia = r.cheia();
+        let (msgs, acabou) = tls::mensagens(r.dados());
+        if self.tls_mensagens(id, o, d, msgs, ts) || cheia || acabou {
+            lido(self);
+        }
+    }
+
+    /// Registra o que veio do handshake. Devolve se esta direção já deu o
+    /// que tinha para dar (ClientHello, ou certificado, ou TLS 1.3).
+    fn tls_mensagens(&mut self, id: u32, o: (IpAddr, u16), d: (IpAddr, u16), msgs: Vec<tls::Handshake>, ts: u64) -> bool {
+        let mut lido = false;
+        for m in msgs {
+            match m {
+                tls::Handshake::Cliente(h) => {
+                    lido = true;
+                    if self.tls_por_fluxo.contains_key(&id) {
+                        continue;
+                    }
+                    if let Some(s) = &h.sni {
+                        self.aprender_nome(d.0, s);
+                    }
+                    self.total_tls += 1;
+                    if !self.cabe_evento(self.tls.len()) {
+                        continue;
+                    }
+                    self.tls_por_fluxo.insert(id, self.tls.len());
+                    let (ja3, ja4) = (h.ja3(), h.ja4());
+                    self.tls.push(EventoTls {
+                        ts_us: ts,
+                        fluxo: id,
+                        cliente: o.0,
+                        servidor: d.0,
+                        porta: d.1,
+                        sni: h.sni,
+                        alpn: h.alpn,
+                        versao_oferecida: tls::nome_versao(h.versao),
+                        versao: None,
+                        cifra: None,
+                        ja3: Some(ja3),
+                        ja4: Some(ja4),
+                        ja3s: None,
+                        certificado: None,
+                    });
+                }
+                tls::Handshake::Servidor(h) => {
+                    // No TLS 1.3 o certificado vem cifrado: não há mais o que ler.
+                    lido |= h.versao == 0x0304;
+                    if let Some(&i) = self.tls_por_fluxo.get(&id) {
+                        let e = &mut self.tls[i];
+                        e.versao.get_or_insert_with(|| tls::nome_versao(h.versao));
+                        e.cifra.get_or_insert_with(|| format!("0x{:04x}", h.cifra));
+                        if e.ja3s.is_none() {
+                            e.ja3s = Some(h.ja3s());
+                        }
+                    }
+                }
+                tls::Handshake::Certificado(der) => {
+                    lido = true;
+                    let Some(&i) = self.tls_por_fluxo.get(&id) else { continue };
+                    if self.tls[i].certificado.is_some() {
+                        continue;
+                    }
+                    if let Some(c) = x509::ler(&der) {
+                        let servidor = self.tls[i].servidor;
+                        for n in c.nomes.iter().take(4).filter(|n| !n.starts_with('*')) {
+                            self.aprender_nome(servidor, n);
+                        }
+                        self.tls[i].certificado = Some(c);
+                    }
+                }
+            }
+        }
+        lido
     }
 
     fn evento_dhcp(&mut self, m: dhcp::MensagemDhcp, ts: u64) {

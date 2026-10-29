@@ -5,3 +5,4 @@ pub mod dhcp;
 pub mod dns;
 pub mod http;
 pub mod tls;
+pub mod x509;

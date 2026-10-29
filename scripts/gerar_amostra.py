@@ -90,6 +90,35 @@ def server_hello():
     return b"\x16\x03\x03" + struct.pack("!H", len(hs)) + hs
 
 
+def tlv(tag, conteudo):
+    if len(conteudo) < 0x80:
+        return bytes([tag, len(conteudo)]) + conteudo
+    return bytes([tag, 0x82]) + struct.pack("!H", len(conteudo)) + conteudo
+
+
+def certificado_der(emissor, sujeito, nomes, antes, depois):
+    def nome(cn):
+        atr = tlv(0x30, tlv(0x06, bytes([0x55, 0x04, 0x03])) + tlv(0x0C, cn.encode()))
+        return tlv(0x30, tlv(0x31, atr))
+    validade = tlv(0x30, tlv(0x17, antes.encode()) + tlv(0x17, depois.encode()))
+    san = tlv(0x30, b"".join(tlv(0x82, n.encode()) for n in nomes))
+    ext = tlv(0xA3, tlv(0x30, tlv(0x30, tlv(0x06, bytes([0x55, 0x1D, 0x11])) + tlv(0x04, san))))
+    chave = tlv(0x30, tlv(0x30, tlv(0x06, bytes([0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01]))) + tlv(0x03, b"\x00" + b"\x42" * 270))
+    tbs = tlv(0x30, tlv(0xA0, tlv(0x02, b"\x02")) + tlv(0x02, b"\x01") + tlv(0x30, tlv(0x06, b"\x2a")) + nome(emissor)
+              + validade + nome(sujeito) + chave + ext)
+    return tlv(0x30, tbs + tlv(0x30, tlv(0x06, b"\x2a")) + tlv(0x03, b"\x00" + b"\x55" * 256))
+
+
+def server_hello_12_com_certificado(der):
+    sh = b"\x03\x03" + b"\x33" * 32 + b"\x00" + b"\xc0\x2f" + b"\x00" + b"\x00\x00"
+    msg = b"\x02" + struct.pack("!I", len(sh))[1:] + sh
+    cadeia = struct.pack("!I", len(der))[1:] + der
+    cert = struct.pack("!I", len(cadeia))[1:] + cadeia
+    msg += b"\x0b" + struct.pack("!I", len(cert))[1:] + cert
+    msg += b"\x0e\x00\x00\x00"  # ServerHelloDone
+    return b"\x16\x03\x03" + struct.pack("!H", len(msg)) + msg
+
+
 def cenario(desvio=0.0, porta_base=50000):
     """Lista de (segundos desde T0, quadro, tamanho original)."""
     p = []
@@ -288,6 +317,24 @@ def laboratorio():
         add(t + 0.02, servidor, atacante, 6, tcp(80, po, PSH | ACK, b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n"))
     http(30.0, 41006, b"GET /api/v1/users?id=1%20OR%201%3D1 HTTP/1.1\r\nHost: portal.example.test\r\n\r\n",
          b"HTTP/1.1 400 Bad Request\r\n\r\n")
+    # TLS 1.2 com certificado autoassinado e emitido para outro nome, com o
+    # ClientHello e a resposta do servidor partidos em segmentos de 300 bytes.
+    c2 = "203.0.113.80"
+    hello = client_hello("painel.example.test")
+    der = certificado_der("acme-c2", "acme-c2", ["acme-c2"], "240101000000Z", "240201000000Z")
+    resposta = server_hello_12_com_certificado(der)
+    po, seq_c, seq_s = 44000, 5000, 900000
+    add(40.0, cliente, c2, 6, tcp(po, 443, SYN, seq=seq_c - 1))
+    add(40.01, c2, cliente, 6, tcp(443, po, SYN | ACK, seq=seq_s - 1, ack=seq_c))
+    for k, ini in enumerate(range(0, len(hello), 120)):
+        add(40.02 + k * 0.001, cliente, c2, 6, tcp(po, 443, ACK | PSH, hello[ini:ini + 120], seq=seq_c + ini))
+    pedacos = [(ini, resposta[ini:ini + 300]) for ini in range(0, len(resposta), 300)]
+    # O segundo pedaço chega antes do primeiro: a remontagem precisa reordenar.
+    if len(pedacos) > 1:
+        pedacos[0], pedacos[1] = pedacos[1], pedacos[0]
+    for k, (ini, pedaco) in enumerate(pedacos):
+        add(40.05 + k * 0.001, c2, cliente, 6, tcp(443, po, ACK | PSH, pedaco, seq=seq_s + ini))
+
     sonda = "203.0.113.46"
     for i in range(25):
         add(32.0 + i * 0.1, sonda, servidor, 17, udp(43000 + i, 161, b"0\x26\x02\x01\x01\x04\x06public"))

@@ -15,6 +15,7 @@ mod captura;
 mod decodificacao;
 mod deteccao;
 mod historia;
+mod remontagem;
 pub mod relatorio;
 
 pub use analise::{Analise, Progresso};

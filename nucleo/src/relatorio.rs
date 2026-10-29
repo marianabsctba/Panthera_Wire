@@ -192,6 +192,24 @@ pub struct EventoTls {
     pub versao_oferecida: String,
     pub versao: Option<String>,
     pub cifra: Option<String>,
+    /// Fingerprints do ClientHello (JA3 em MD5, JA4 da FoxIO) e do ServerHello.
+    pub ja3: Option<String>,
+    pub ja4: Option<String>,
+    pub ja3s: Option<String>,
+    /// Certificado do servidor (só aparece no TLS 1.2; no 1.3 vai cifrado).
+    pub certificado: Option<Certificado>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct Certificado {
+    pub sujeito: Option<String>,
+    pub emissor: Option<String>,
+    pub emissor_organizacao: Option<String>,
+    pub nao_antes_us: Option<u64>,
+    pub nao_depois_us: Option<u64>,
+    pub autoassinado: bool,
+    /// Nomes DNS do Subject Alternative Name.
+    pub nomes: Vec<String>,
 }
 
 #[derive(Serialize)]

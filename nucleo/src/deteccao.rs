@@ -7,6 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::net::IpAddr;
 
+use crate::aplicacao::x509;
 use crate::decodificacao::{escopo, lado_de_dentro, lado_de_fora};
 use crate::relatorio::{Alerta, EventoDns, EventoHttp, EventoTls, Fluxo};
 
@@ -51,6 +52,7 @@ pub const REGRAS: &[Regra] = &[
     Regra { regra: "porta_incomum", tecnica: Some("T1571"), fase: "comando_e_controle", d3fend: &["D3-PMAD"] },
     Regra { regra: "forca_bruta", tecnica: Some("T1110.001"), fase: "credenciais", d3fend: &["D3-ANET"] },
     Regra { regra: "sondagem_udp", tecnica: Some("T1046"), fase: "descoberta", d3fend: &["D3-CAA", "D3-ISVA"] },
+    Regra { regra: "certificado_suspeito", tecnica: Some("T1573.002"), fase: "comando_e_controle", d3fend: &["D3-PCA"] },
 ];
 
 fn regra(nome: &str) -> &'static Regra {
@@ -153,6 +155,7 @@ pub fn detectar(d: &Dados) -> Vec<Alerta> {
     ataque_web(d, &mut a);
     forca_bruta(d, &mut a);
     sondagem_udp(d, &mut a);
+    certificado_suspeito(d, &mut a);
     dga(d, &mut a);
     tunel_dns(d, &mut a);
     credencial_em_claro(d, &mut a);
@@ -458,6 +461,59 @@ fn sondagem_udp(d: &Dados, saida: &mut Vec<Alerta>) {
                 alvo: Some(d.nome_ou_ip(&destino)),
                 alvo_ip: Some(destino),
                 parametros: vec![("pacotes", pacotes.to_string()), ("servicos", nomes.join(", "))],
+            },
+            g,
+        ));
+    }
+}
+
+/// Certificado do servidor, numa conexão para fora, que não deveria ser
+/// aceito: autoassinado, vencido, ainda não válido ou emitido para outro nome.
+/// Servidores de comando montados às pressas costumam ter um desses.
+fn certificado_suspeito(d: &Dados, saida: &mut Vec<Alerta>) {
+    let mut grupos: BTreeMap<(IpAddr, IpAddr, String), (Grupo, BTreeSet<&'static str>, &EventoTls)> = BTreeMap::new();
+    for t in d.tls {
+        let Some(c) = &t.certificado else { continue };
+        if !para_fora(&t.cliente, &t.servidor) {
+            continue;
+        }
+        let mut motivos = BTreeSet::new();
+        if c.autoassinado {
+            motivos.insert("autoassinado");
+        }
+        if c.nao_depois_us.is_some_and(|f| f < t.ts_us) {
+            motivos.insert("vencido");
+        }
+        if c.nao_antes_us.is_some_and(|i| i > t.ts_us) {
+            motivos.insert("ainda_nao_valido");
+        }
+        if let Some(sni) = &t.sni {
+            if (c.sujeito.is_some() || !c.nomes.is_empty()) && !x509::confere(c, sni) {
+                motivos.insert("nome_diferente");
+            }
+        }
+        if motivos.is_empty() {
+            continue;
+        }
+        let alvo = t.sni.clone().unwrap_or_else(|| d.nome_ou_ip(&t.servidor));
+        let (g, m, _) = grupos.entry((t.cliente, t.servidor, alvo)).or_insert_with(|| (Grupo::default(), BTreeSet::new(), t));
+        g.somar(t.ts_us, t.fluxo);
+        m.extend(motivos);
+    }
+    for ((cliente, servidor, alvo), (g, motivos, t)) in grupos {
+        let c = t.certificado.as_ref();
+        saida.push(alerta(
+            Novo {
+                regra: "certificado_suspeito",
+                severidade: if motivos.contains("autoassinado") || motivos.contains("nome_diferente") { "media" } else { "baixa" },
+                host: cliente,
+                alvo: Some(alvo),
+                alvo_ip: Some(servidor),
+                parametros: vec![
+                    ("motivos", motivos.into_iter().collect::<Vec<_>>().join(",")),
+                    ("sujeito", c.and_then(|c| c.sujeito.clone()).unwrap_or_default()),
+                    ("emissor", c.and_then(|c| c.emissor.clone()).unwrap_or_default()),
+                ],
             },
             g,
         ));
