@@ -230,6 +230,15 @@ button.link:hover { text-decoration: underline; }
 .celula .subs .marca-status { width: 6px; height: 6px; }
 .detalhe-tecnica { display: flex; flex-direction: column; gap: 8px; border-color: var(--borda-forte); }
 
+/* Regras que não dispararam */
+.regras-quietas { margin-top: 8px; font-size: 13px; }
+.regras-quietas td { padding: 8px 10px; }
+.regra-nome { white-space: nowrap; width: 1%; font-weight: 500; }
+.condicoes { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 2px; }
+.condicao.ok { color: var(--texto); }
+.condicao.falta { color: var(--aviso); }
+.condicao b { font-weight: 600; }
+
 /* Pacotes */
 .pacotes { display: grid; grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); gap: 12px; align-items: start; }
 .lista-pacotes { max-height: 70vh; overflow: auto; padding: 0; }

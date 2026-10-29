@@ -323,3 +323,24 @@ fn pacotes_aleatorios_nao_derrubam() {
         assert!(b.alimentar(&saida).is_ok(), "pacote {i}: anonimizado ilegível");
     }
 }
+
+/// "Por que não disparou": toda regra tem diagnóstico, as que dispararam não
+/// têm caso, e o caso mais perto mostra o que faltou.
+#[test]
+fn diagnostico_das_regras_quietas() {
+    let r = analisar(PCAP, 1 << 20);
+    assert_eq!(r.diagnosticos.len(), 15);
+    let beacon = r.diagnosticos.iter().find(|d| d.regra == "beaconing").unwrap();
+    assert!(beacon.disparou && beacon.caso.is_none());
+
+    // No cenário não há força bruta: o mais perto não chega ao limiar.
+    let bruta = r.diagnosticos.iter().find(|d| d.regra == "forca_bruta").unwrap();
+    assert!(!bruta.disparou);
+
+    // No laboratório não há exfiltração: o caso mais perto diz quanto faltou.
+    let lab = analisar(include_bytes!("../../amostras/laboratorio.pcap"), 1 << 20);
+    let exfil = lab.diagnosticos.iter().find(|d| d.regra == "exfiltracao_volume").unwrap();
+    let caso = exfil.caso.as_ref().expect("deveria haver um caso mais perto");
+    let mb = caso.condicoes.iter().find(|c| c.medida == "enviados_mb").unwrap();
+    assert!(!mb.ok && mb.limiar == 50.0);
+}

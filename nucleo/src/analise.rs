@@ -675,13 +675,9 @@ impl Estado {
         let mut fluxos: Vec<Fluxo> = self.fluxos.into_iter().map(|fi| fi.f).collect();
 
         // Detecção e história olham a captura inteira, antes de qualquer corte.
-        let alertas = deteccao::detectar(&deteccao::Dados {
-            fluxos: &fluxos,
-            dns: &self.dns,
-            http: &self.http,
-            tls: &self.tls,
-            nomes: &self.nomes,
-        });
+        let dados = deteccao::Dados { fluxos: &fluxos, dns: &self.dns, http: &self.http, tls: &self.tls, nomes: &self.nomes };
+        let alertas = deteccao::detectar(&dados);
+        let diagnosticos = crate::diagnostico::diagnosticar(&dados, &alertas);
         let historia = historia::montar(&historia::Contexto {
             alertas: &alertas,
             fluxos: &fluxos,
@@ -753,6 +749,7 @@ impl Estado {
             dhcp,
             total_dhcp: self.total_dhcp,
             alertas,
+            diagnosticos,
             historia,
         }
     }

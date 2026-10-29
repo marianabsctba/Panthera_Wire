@@ -167,7 +167,14 @@ export function Alertas({ r, nomes }: Contexto) {
   const ordenados = useMemo(() => [...r.alertas].sort((a, b) => PESO[a.severidade] - PESO[b.severidade] || a.inicio_us - b.inicio_us), [r]);
   const contagem = (s: string) => r.alertas.filter((a) => a.severidade === s).length;
 
-  if (r.alertas.length === 0) return <div className="vazio">{ti.alertas.nenhum}</div>;
+  if (r.alertas.length === 0) {
+    return (
+      <>
+        <div className="vazio">{ti.alertas.nenhum}</div>
+        <RegrasQuietas r={r} nomes={nomes} />
+      </>
+    );
+  }
   return (
     <>
       <div className="cartoes">
@@ -199,7 +206,52 @@ export function Alertas({ r, nomes }: Contexto) {
           </div>
         );
       })}
+      <RegrasQuietas r={r} nomes={nomes} />
     </>
+  );
+}
+
+/** "Por que não disparou": o caso mais perto de cada regra que ficou quieta. */
+function RegrasQuietas({ r, nomes }: { r: Relatorio; nomes: Map<string, string> }) {
+  const ti = useTi();
+  const { idioma } = useTextos();
+  const quietas = (r.diagnosticos ?? []).filter((d) => !d.disparou);
+  if (quietas.length === 0) return null;
+  const dg = ti.diagnostico;
+  return (
+    <div className="bloco">
+      <h2>{dg.titulo}</h2>
+      <div className="suave">{dg.subtitulo}</div>
+      <table className="regras-quietas">
+        <tbody>
+          {quietas.map((d) => (
+            <tr key={d.regra}>
+              <td className="regra-nome">{ti.regras[d.regra]?.nome ?? d.regra}</td>
+              <td>
+                {d.caso ? (
+                  <>
+                    <div className="fraco">{dg.maisPerto(rotulo(d.caso.host, nomes), d.caso.alvo ?? "")}</div>
+                    <div className="condicoes">
+                      {d.caso.condicoes.map((c) => (
+                        <span key={c.medida} className={`condicao ${c.ok ? "ok" : "falta"}`}>
+                          {c.ok ? "✓" : "✗"} {dg.medidas[c.medida] ?? c.medida}: <b>{numero(c.valor, idioma)}</b>
+                          <span className="fraco"> ({dg.minimo} {numero(c.limiar, idioma)})</span>
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <span className="fraco">
+                    {(["download_executavel", "ataque_web", "credencial_em_claro", "user_agent_suspeito", "tls_antigo", "certificado_suspeito", "porta_incomum"].includes(d.regra)
+                      ? dg.simOuNao : dg.nada)(numero(d.inspecionados, idioma))}
+                  </span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

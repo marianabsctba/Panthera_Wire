@@ -139,7 +139,22 @@ export interface Relatorio {
   dhcp: EventoDhcp[];
   total_dhcp: number;
   alertas: Alerta[];
+  diagnosticos: Diagnostico[];
   historia: Historia;
+}
+
+export interface Condicao {
+  medida: string;
+  valor: number;
+  limiar: number;
+  ok: boolean;
+}
+
+export interface Diagnostico {
+  regra: string;
+  disparou: boolean;
+  inspecionados: number;
+  caso: { host: string; alvo: string | null; condicoes: Condicao[] } | null;
 }
 
 export type Severidade = "baixa" | "media" | "alta";

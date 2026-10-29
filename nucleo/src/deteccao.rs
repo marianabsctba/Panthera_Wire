@@ -9,6 +9,7 @@ use std::net::IpAddr;
 
 use crate::aplicacao::x509;
 use crate::decodificacao::{escopo, lado_de_dentro, lado_de_fora};
+use crate::diagnostico as lim;
 use crate::relatorio::{Alerta, EventoDns, EventoHttp, EventoTls, Fluxo};
 
 pub struct Dados<'a> {
@@ -84,7 +85,7 @@ fn interno(ip: &IpAddr) -> bool {
 
 /// De um host da rede observada para um destino lá fora. Com faixas
 /// reservadas (laboratório), as duas pontas podem ser reservadas.
-fn para_fora(origem: &IpAddr, destino: &IpAddr) -> bool {
+pub(crate) fn para_fora(origem: &IpAddr, destino: &IpAddr) -> bool {
     origem != destino && lado_de_dentro(origem) && lado_de_fora(destino) && !(interno(origem) && interno(destino))
 }
 
@@ -93,7 +94,7 @@ impl Dados<'_> {
         self.nomes.get(ip).and_then(|n| n.iter().next()).map(String::as_str)
     }
 
-    fn nome_ou_ip(&self, ip: &IpAddr) -> String {
+    pub(crate) fn nome_ou_ip(&self, ip: &IpAddr) -> String {
         self.nome(ip).map_or_else(|| ip.to_string(), str::to_owned)
     }
 }
@@ -173,7 +174,7 @@ pub fn detectar(d: &Dados) -> Vec<Alerta> {
     a
 }
 
-fn mediana(v: &mut [f64]) -> f64 {
+pub(crate) fn mediana(v: &mut [f64]) -> f64 {
     v.sort_by(|a, b| a.total_cmp(b));
     let n = v.len();
     if n == 0 {
@@ -194,18 +195,18 @@ fn beaconing(d: &Dados, saida: &mut Vec<Alerta>) {
         }
     }
     for ((origem, destino, porta, protocolo), mut fs) in grupos {
-        if fs.len() < 6 {
+        if (fs.len() as f64) < lim::BEACON_CONEXOES {
             continue;
         }
         fs.sort_by_key(|f| f.inicio_us);
         let mut intervalos: Vec<f64> =
             fs.windows(2).map(|w| w[1].inicio_us.saturating_sub(w[0].inicio_us) as f64 / 1e6).collect();
         let med = mediana(&mut intervalos);
-        if med < 5.0 {
+        if med < lim::BEACON_INTERVALO_S {
             continue;
         }
         let regulares = intervalos.iter().filter(|x| (*x - med).abs() <= 0.2 * med).count();
-        if (regulares as f64) < 0.8 * intervalos.len() as f64 {
+        if (regulares as f64) < lim::BEACON_REGULARES_PCT / 100.0 * intervalos.len() as f64 {
             continue;
         }
         let mut desvios: Vec<f64> = intervalos.iter().map(|x| (x - med).abs()).collect();
@@ -414,7 +415,7 @@ fn forca_bruta(d: &Dados, saida: &mut Vec<Alerta>) {
         }
     }
     for ((cliente, servidor), t) in grupos {
-        if t.falhas < 10 {
+        if (t.falhas as f64) < lim::BRUTA_FALHAS {
             continue;
         }
         saida.push(alerta(
@@ -449,7 +450,7 @@ fn sondagem_udp(d: &Dados, saida: &mut Vec<Alerta>) {
         }
     }
     for ((origem, destino), (pacotes, portas, g)) in grupos {
-        if g.fluxos.len() < 20 {
+        if (g.fluxos.len() as f64) < lim::SONDAGEM_UDP {
             continue;
         }
         let nomes: Vec<String> = portas.iter().take(6).map(|p| servico_udp(*p)).collect();
@@ -546,7 +547,7 @@ fn dga(d: &Dados, saida: &mut Vec<Alerta>) {
         }
     }
     for (cliente, (nomes, g)) in por_cliente {
-        if nomes.len() < 15 {
+        if (nomes.len() as f64) < lim::DGA_NXDOMAIN {
             continue;
         }
         let exemplos: Vec<&str> = nomes.iter().take(3).copied().collect();
@@ -597,8 +598,8 @@ fn tunel_dns(d: &Dados, saida: &mut Vec<Alerta>) {
     }
     for ((cliente, base), a) in grupos {
         let media = a.tamanho / a.consultas.max(1);
-        let longo = a.unicos.len() >= 20 && media >= 40;
-        let txt = a.txt >= 20 && a.unicos.len() >= 10;
+        let longo = a.unicos.len() as f64 >= lim::TUNEL_UNICOS && media as f64 >= lim::TUNEL_TAMANHO;
+        let txt = a.txt as f64 >= lim::TUNEL_TXT && a.unicos.len() >= 10;
         if !longo && !txt {
             continue;
         }
@@ -684,7 +685,7 @@ fn varredura(d: &Dados, saida: &mut Vec<Alerta>) {
         g.somar(f.inicio_us, f.id);
     }
     for ((origem, destino), (p, g)) in portas {
-        if p.len() >= 10 {
+        if p.len() as f64 >= lim::VARREDURA {
             saida.push(alerta(
                 Novo {
                     regra: "varredura_portas",
@@ -702,7 +703,7 @@ fn varredura(d: &Dados, saida: &mut Vec<Alerta>) {
         }
     }
     for ((origem, porta), (h, g)) in hosts {
-        if h.len() >= 10 {
+        if h.len() as f64 >= lim::VARREDURA {
             saida.push(alerta(
                 Novo {
                     regra: "varredura_hosts",
@@ -736,7 +737,7 @@ fn movimentacao_lateral(d: &Dados, saida: &mut Vec<Alerta>) {
         g.somar(f.inicio_us, f.id);
     }
     for (origem, (destinos, apps, g)) in por_origem {
-        if destinos.len() < 3 {
+        if (destinos.len() as f64) < lim::LATERAL_DESTINOS {
             continue;
         }
         let alvos: Vec<String> = destinos.iter().take(5).map(|ip| d.nome_ou_ip(ip)).collect();
@@ -770,7 +771,7 @@ fn exfiltracao(d: &Dados, saida: &mut Vec<Alerta>) {
         }
     }
     for ((origem, destino), (ida, volta, fs)) in grupos {
-        if ida < 50 * MIB || ida < 5 * volta.max(1) {
+        if (ida as f64) < lim::EXFIL_MB * MIB as f64 || (ida as f64) < lim::EXFIL_PROPORCAO * volta.max(1) as f64 {
             continue;
         }
         // Evidência são os fluxos que carregaram o volume, não as conexões

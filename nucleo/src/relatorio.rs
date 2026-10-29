@@ -25,6 +25,8 @@ pub struct Relatorio {
     pub dhcp: Vec<EventoDhcp>,
     pub total_dhcp: u64,
     pub alertas: Vec<Alerta>,
+    /// Para cada regra, se disparou e, se não, o caso que chegou mais perto.
+    pub diagnosticos: Vec<Diagnostico>,
     pub historia: Historia,
 }
 
@@ -50,6 +52,30 @@ pub struct Alerta {
     pub parametros: BTreeMap<&'static str, String>,
     /// Fluxos que sustentam o alerta (no máximo 200).
     pub fluxos: Vec<u32>,
+}
+
+#[derive(Serialize)]
+pub struct Diagnostico {
+    pub regra: &'static str,
+    pub disparou: bool,
+    /// Quantos itens a regra olhou (grupos, consultas, requisições...).
+    pub inspecionados: u64,
+    pub caso: Option<CasoProximo>,
+}
+
+#[derive(Serialize)]
+pub struct CasoProximo {
+    pub host: IpAddr,
+    pub alvo: Option<String>,
+    pub condicoes: Vec<Condicao>,
+}
+
+#[derive(Serialize)]
+pub struct Condicao {
+    pub medida: &'static str,
+    pub valor: f64,
+    pub limiar: f64,
+    pub ok: bool,
 }
 
 #[derive(Serialize)]

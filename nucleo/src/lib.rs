@@ -14,6 +14,7 @@ mod bytes;
 mod captura;
 mod decodificacao;
 mod deteccao;
+mod diagnostico;
 mod historia;
 pub mod pacotes;
 mod remontagem;
