@@ -329,7 +329,7 @@ fn pacotes_aleatorios_nao_derrubam() {
 #[test]
 fn diagnostico_das_regras_quietas() {
     let r = analisar(PCAP, 1 << 20);
-    assert_eq!(r.diagnosticos.len(), 15);
+    assert_eq!(r.diagnosticos.len(), 16);
     let beacon = r.diagnosticos.iter().find(|d| d.regra == "beaconing").unwrap();
     assert!(beacon.disparou && beacon.caso.is_none());
 
