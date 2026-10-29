@@ -59,6 +59,7 @@ const pt = {
     semSuspeitas: "Nada nesta captura se encaixa nos padrões de ataque que o Panthera Wire conhece.",
     semSuspeitasDetalhe: (hosts: string, fluxos: string, dominios: string) =>
       `Foram ${hosts} hosts, ${fluxos} fluxos e ${dominios} domínios consultados. Isso não prova que nada aconteceu: veja abaixo o que a captura não mostra.`,
+    semCadeia: (n: number) => `Nenhuma sequência de ataque se formou, mas há ${n} ${n === 1 ? "alerta isolado" : "alertas isolados"}. Veja em Alertas.`,
     alertasSoltos: (n: number) => `${n} ${n === 1 ? "alerta isolado não entrou" : "alertas isolados não entraram"} em nenhuma sequência. Veja em Alertas.`,
   },
   alertas: {
@@ -153,6 +154,18 @@ const pt = {
     stix: ["STIX 2.1", "Indicadores, padrões de ataque ATT&CK e um relatório, prontos para plataformas de CTI."],
     iocs: (n: number) => `${n} ${n === 1 ? "IOC" : "IOCs"} nesta captura`,
   },
+  factual: {
+    titulo: "O que aconteceu na rede",
+    subtitulo: "Os fatos da captura, host por host, com ou sem alerta.",
+    conexoes: (n: number, d: number) => `abriu ${n} ${n === 1 ? "conexão" : "conexões"} com ${d} ${d === 1 ? "destino" : "destinos"}`,
+    semResposta: (n: number) => `${n} sem resposta`,
+    recusadas: (n: number) => `${n} recusadas`,
+    dns: (n: number, sem: number, nx: number) =>
+      `fez ${n} ${n === 1 ? "consulta" : "consultas"} DNS${sem ? `, ${sem} sem resposta` : ""}${nx ? `, ${nx} para domínios inexistentes` : ""}`,
+    http: (n: number, erros: number) => `fez ${n} ${n === 1 ? "requisição" : "requisições"} HTTP${erros ? `, ${erros} com erro` : ""}`,
+    enviou: (b: string) => `enviou ${b}`,
+    mais: (n: number) => `e mais ${n} ${n === 1 ? "host" : "hosts"} com pouca atividade.`,
+  },
   regras: {
     beaconing: {
       nome: "Beaconing",
@@ -234,6 +247,18 @@ const pt = {
       frase: (a) => `${a.h} usou ${a.p.protocolo} com ${a.alvo} na porta ${a.p.porta}, fora do comum.`,
       porque: "Servidores de comando costumam usar portas fora do padrão para escapar de filtros simples.",
     },
+    forca_bruta: {
+      nome: "Força bruta de senha",
+      titulo: (a) => `Força bruta contra ${a.alvo}`,
+      frase: (a) => `${a.h} teve ${a.p.falhas} tentativas de login recusadas em ${a.alvo} (${a.p.caminhos})${a.p.sucesso === "true" ? ", e depois conseguiu entrar" : ""}.`,
+      porque: "Muitas senhas erradas seguidas, vindas do mesmo lugar, é alguém tentando adivinhar a senha.",
+    },
+    sondagem_udp: {
+      nome: "Sondagem UDP",
+      titulo: (a) => `Sondagem de ${a.p.servicos} em ${a.alvo}`,
+      frase: (a) => `${a.h} enviou ${a.p.pacotes} pacotes UDP para ${a.alvo} (${a.p.servicos}) sem receber resposta.`,
+      porque: "Disparar pedidos a serviços como SNMP e NTP é como se descobre o que está exposto e se dá para abusar dele.",
+    },
   } as Record<string, TextoRegra>,
 };
 
@@ -271,6 +296,7 @@ const en: TextosInteligencia = {
     semSuspeitas: "Nothing in this capture matches the attack patterns Panthera Wire knows.",
     semSuspeitasDetalhe: (hosts, fluxos, dominios) =>
       `There were ${hosts} hosts, ${fluxos} flows and ${dominios} domains queried. This does not prove nothing happened: see below what the capture does not show.`,
+    semCadeia: (n) => `No attack sequence formed, but there ${n === 1 ? "is 1 isolated alert" : `are ${n} isolated alerts`}. See Alerts.`,
     alertasSoltos: (n) => `${n} isolated ${n === 1 ? "alert is" : "alerts are"} not part of any sequence. See Alerts.`,
   },
   alertas: {
@@ -364,6 +390,17 @@ const en: TextosInteligencia = {
     stix: ["STIX 2.1", "Indicators, ATT&CK attack patterns and a report, ready for CTI platforms."],
     iocs: (n) => `${n} ${n === 1 ? "IOC" : "IOCs"} in this capture`,
   },
+  factual: {
+    titulo: "What happened on the network",
+    subtitulo: "The facts of the capture, host by host, with or without alerts.",
+    conexoes: (n, d) => `opened ${n} ${n === 1 ? "connection" : "connections"} to ${d} ${d === 1 ? "destination" : "destinations"}`,
+    semResposta: (n) => `${n} unanswered`,
+    recusadas: (n) => `${n} refused`,
+    dns: (n, sem, nx) => `made ${n} DNS ${n === 1 ? "query" : "queries"}${sem ? `, ${sem} unanswered` : ""}${nx ? `, ${nx} for non-existent domains` : ""}`,
+    http: (n, erros) => `made ${n} HTTP ${n === 1 ? "request" : "requests"}${erros ? `, ${erros} with errors` : ""}`,
+    enviou: (b) => `sent ${b}`,
+    mais: (n) => `and ${n} more ${n === 1 ? "host" : "hosts"} with little activity.`,
+  },
   regras: {
     beaconing: {
       nome: "Beaconing",
@@ -445,6 +482,18 @@ const en: TextosInteligencia = {
       frase: (a) => `${a.h} used ${a.p.protocolo} with ${a.alvo} on port ${a.p.porta}, which is unusual.`,
       porque: "Command servers often use non-standard ports to slip past simple filters.",
     },
+    forca_bruta: {
+      nome: "Password brute force",
+      titulo: (a) => `Brute force against ${a.alvo}`,
+      frase: (a) => `${a.h} had ${a.p.falhas} login attempts rejected by ${a.alvo} (${a.p.caminhos})${a.p.sucesso === "true" ? ", and then got in" : ""}.`,
+      porque: "Many wrong passwords in a row from the same place is someone trying to guess the password.",
+    },
+    sondagem_udp: {
+      nome: "UDP probing",
+      titulo: (a) => `${a.p.servicos} probing of ${a.alvo}`,
+      frase: (a) => `${a.h} sent ${a.p.pacotes} UDP packets to ${a.alvo} (${a.p.servicos}) without any answer.`,
+      porque: "Firing requests at services such as SNMP and NTP is how someone finds out what is exposed and whether it can be abused.",
+    },
   },
 };
 
@@ -480,6 +529,7 @@ const es: TextosInteligencia = {
     semSuspeitas: "Nada en esta captura coincide con los patrones de ataque que Panthera Wire conoce.",
     semSuspeitasDetalhe: (hosts, fluxos, dominios) =>
       `Hubo ${hosts} hosts, ${fluxos} flujos y ${dominios} dominios consultados. Eso no prueba que no haya pasado nada: mira abajo lo que la captura no muestra.`,
+    semCadeia: (n) => `No se formó ninguna secuencia de ataque, pero hay ${n} ${n === 1 ? "alerta aislada" : "alertas aisladas"}. Míralas en Alertas.`,
     alertasSoltos: (n) => `${n} ${n === 1 ? "alerta aislada no entró" : "alertas aisladas no entraron"} en ninguna secuencia. Míralas en Alertas.`,
   },
   alertas: {
@@ -573,6 +623,17 @@ const es: TextosInteligencia = {
     stix: ["STIX 2.1", "Indicadores, patrones de ataque ATT&CK y un informe, listos para plataformas de CTI."],
     iocs: (n) => `${n} ${n === 1 ? "IOC" : "IOC"} en esta captura`,
   },
+  factual: {
+    titulo: "Lo que pasó en la red",
+    subtitulo: "Los hechos de la captura, host por host, con o sin alertas.",
+    conexoes: (n, d) => `abrió ${n} ${n === 1 ? "conexión" : "conexiones"} con ${d} ${d === 1 ? "destino" : "destinos"}`,
+    semResposta: (n) => `${n} sin respuesta`,
+    recusadas: (n) => `${n} rechazadas`,
+    dns: (n, sem, nx) => `hizo ${n} ${n === 1 ? "consulta" : "consultas"} DNS${sem ? `, ${sem} sin respuesta` : ""}${nx ? `, ${nx} a dominios inexistentes` : ""}`,
+    http: (n, erros) => `hizo ${n} ${n === 1 ? "solicitud" : "solicitudes"} HTTP${erros ? `, ${erros} con error` : ""}`,
+    enviou: (b) => `envió ${b}`,
+    mais: (n) => `y ${n} ${n === 1 ? "host" : "hosts"} más con poca actividad.`,
+  },
   regras: {
     beaconing: {
       nome: "Beaconing",
@@ -653,6 +714,18 @@ const es: TextosInteligencia = {
       titulo: (a) => `${a.p.protocolo} en el puerto ${a.p.porta}`,
       frase: (a) => `${a.h} usó ${a.p.protocolo} con ${a.alvo} en el puerto ${a.p.porta}, algo inusual.`,
       porque: "Los servidores de comando suelen usar puertos no estándar para esquivar filtros simples.",
+    },
+    forca_bruta: {
+      nome: "Fuerza bruta de contraseña",
+      titulo: (a) => `Fuerza bruta contra ${a.alvo}`,
+      frase: (a) => `${a.h} tuvo ${a.p.falhas} intentos de inicio de sesión rechazados en ${a.alvo} (${a.p.caminhos})${a.p.sucesso === "true" ? ", y después logró entrar" : ""}.`,
+      porque: "Muchas contraseñas incorrectas seguidas, desde el mismo lugar, es alguien intentando adivinar la contraseña.",
+    },
+    sondagem_udp: {
+      nome: "Sondeo UDP",
+      titulo: (a) => `Sondeo de ${a.p.servicos} en ${a.alvo}`,
+      frase: (a) => `${a.h} envió ${a.p.pacotes} paquetes UDP a ${a.alvo} (${a.p.servicos}) sin recibir respuesta.`,
+      porque: "Lanzar pedidos a servicios como SNMP y NTP es la forma de descubrir qué está expuesto y si se puede abusar de ello.",
     },
   },
 };

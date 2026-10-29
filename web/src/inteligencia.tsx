@@ -231,6 +231,10 @@ export function Historia({ r, nomes }: Contexto) {
             {" "}<span className="selo suspeita">{ti.confiancas[principal.confianca]}</span>
           </div>
         </div>
+      ) : r.alertas.length > 0 ? (
+        <div className="bloco aviso">
+          <p>{ti.historia.semCadeia(r.alertas.length)}</p>
+        </div>
       ) : (
         <div className="bloco">
           <p>{ti.historia.semSuspeitas}</p>
@@ -283,6 +287,8 @@ export function Historia({ r, nomes }: Contexto) {
 
       {soltos > 0 && h.cadeias.length > 0 && <div className="fraco">{ti.historia.alertasSoltos(soltos)}</div>}
 
+      <HistoriaFactual r={r} nomes={nomes} />
+
       <div className="bloco">
         <h2>{ti.historia.naoMostraTitulo}</h2>
         <ul className="lista">
@@ -290,6 +296,76 @@ export function Historia({ r, nomes }: Contexto) {
         </ul>
       </div>
     </>
+  );
+}
+
+/**
+ * A parte factual da história: o que cada host fez, com ou sem alerta. Sem
+ * isso, uma captura que nenhuma regra reconhece ficaria sem narrativa.
+ */
+function HistoriaFactual({ r, nomes }: { r: Relatorio; nomes: Map<string, string> }) {
+  const ti = useTi();
+  const MOSTRAR = 8;
+  const linhas = useMemo(() => {
+    interface Atividade {
+      host: string; conexoes: number; destinos: Set<string>; sem: number; recusadas: number; enviados: number;
+      dns: number; dnsSem: number; nx: number; http: number; erros: number;
+    }
+    const por = new Map<string, Atividade>();
+    const de = (host: string) => {
+      let a = por.get(host);
+      if (!a) {
+        a = { host, conexoes: 0, destinos: new Set(), sem: 0, recusadas: 0, enviados: 0, dns: 0, dnsSem: 0, nx: 0, http: 0, erros: 0 };
+        por.set(host, a);
+      }
+      return a;
+    };
+    for (const f of r.fluxos) {
+      // DNS entra pelas consultas, não como conexão.
+      if (f.aplicacao === "DNS" && !f.aplicacao_por_porta) continue;
+      const a = de(f.origem);
+      a.conexoes++;
+      a.destinos.add(f.destino);
+      a.enviados += f.bytes_ida;
+      if (f.estado === "sem_resposta") a.sem++;
+      if (f.estado === "recusada") a.recusadas++;
+    }
+    for (const d of r.dns) {
+      const a = de(d.cliente);
+      a.dns++;
+      if (d.rcode === null) a.dnsSem++;
+      if (d.rcode === 3) a.nx++;
+    }
+    for (const h of r.http) {
+      const a = de(h.cliente);
+      a.http++;
+      if (h.status !== null && h.status >= 400) a.erros++;
+    }
+    return [...por.values()].sort((x, y) => (y.conexoes + y.dns + y.http) - (x.conexoes + x.dns + x.http));
+  }, [r]);
+
+  const f = ti.factual;
+  return (
+    <div className="bloco">
+      <h2>{f.titulo}</h2>
+      <div className="suave">{f.subtitulo}</div>
+      <ul className="lista">
+        {linhas.slice(0, MOSTRAR).map((a) => {
+          const partes: string[] = [];
+          if (a.conexoes) {
+            let p = f.conexoes(a.conexoes, a.destinos.size);
+            if (a.sem) p += `, ${f.semResposta(a.sem)}`;
+            if (a.recusadas) p += `, ${f.recusadas(a.recusadas)}`;
+            partes.push(p);
+          }
+          if (a.dns) partes.push(f.dns(a.dns, a.dnsSem, a.nx));
+          if (a.http) partes.push(f.http(a.http, a.erros));
+          if (a.enviados) partes.push(f.enviou(tamanho(a.enviados)));
+          return <li key={a.host}><b className="mono">{rotulo(a.host, nomes)}</b> {partes.join("; ")}.</li>;
+        })}
+      </ul>
+      {linhas.length > MOSTRAR && <div className="fraco">{f.mais(linhas.length - MOSTRAR)}</div>}
+    </div>
   );
 }
 

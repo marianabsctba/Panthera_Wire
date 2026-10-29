@@ -153,14 +153,29 @@ Os limiares são fixos e ficam no código, à vista, para a pessoa poder discord
 | `beaconing` | 6 ou mais conexões de um host interno ao mesmo destino externo e porta, com intervalo mediano de 5 s ou mais e 80% dos intervalos a até 20% da mediana | T1071 | D3-PMAD |
 | `download_executavel` | resposta HTTP 2xx com extensão (.exe, .dll, .ps1, .hta...) ou tipo executável | T1105 | D3-APCA |
 | `dga` | 15 ou mais domínios distintos com NXDOMAIN para o mesmo cliente | T1568.002 | D3-DNSTA |
-| `tunel_dns` | sob o mesmo domínio: 30 ou mais nomes únicos com média de 40 caracteres, ou 30 ou mais consultas TXT | T1071.004 | D3-DNSTA |
-| `credencial_em_claro` | HTTP Basic, ou FTP, Telnet, POP3, IMAP com conexão aceita | T1552 | D3-APCA |
-| `varredura_portas` / `varredura_hosts` | 15 ou mais portas (ou hosts) com conexão sem resposta ou recusada | T1046 | D3-CAA |
+| `tunel_dns` | sob a mesma zona: 20 ou mais nomes únicos com média de 40 caracteres, ou 20 ou mais consultas TXT | T1071.004 | D3-DNSTA |
+| `credencial_em_claro` | HTTP Basic, campo de senha em formulário ou URL, ou FTP, Telnet, POP3, IMAP com conexão aceita | T1552 | D3-APCA |
+| `forca_bruta` | 10 ou mais respostas 401 ou 403 do mesmo servidor ao mesmo cliente; alta se depois vier sucesso no mesmo caminho | T1110.001 | D3-ANET |
+| `ataque_web` | URL com path traversal, SQL injection, XSS, injeção de comando ou Log4Shell (decodificada duas vezes); alta se a resposta foi 2xx | T1190 | D3-APCA |
+| `varredura_portas` / `varredura_hosts` | 10 ou mais portas (ou hosts) com conexão sem resposta ou recusada | T1046 | D3-CAA |
+| `sondagem_udp` | 20 ou mais mensagens UDP sem resposta do mesmo host para o mesmo destino (fora DNS) | T1046 | D3-CAA, D3-ISVA |
 | `movimentacao_lateral` | SMB, RDP, WinRM, RPC ou SSH aceitos de um host interno para 3 ou mais internos | T1021 | D3-ANAA, D3-RTSD |
 | `exfiltracao_volume` | 50 MB ou mais para um destino externo, com 5 vezes mais saída que entrada | T1041 | D3-PHDURA |
 | `tls_antigo` | SSL 3.0, TLS 1.0 ou 1.1 negociados | (higiene) | D3-PMAD |
 | `user_agent_suspeito` | user agent vazio, de ferramenta (curl, PowerShell, certutil...) ou de navegador obsoleto | T1071.001 | D3-PMAD |
 | `porta_incomum` | HTTP ou TLS confirmados pelo conteúdo, para fora, em porta fora do padrão | T1571 | D3-PMAD |
+
+Faixas de documentação e teste (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24,
+198.18.0.0/15, 2001:db8::/32) têm escopo próprio, `reservado`, e contam como
+podendo estar dos dois lados: capturas de laboratório funcionam sem IP privado.
+Uma conexão cujo SYN-ACK ficou fora da captura, mas que teve resposta, conta
+como aberta, e não como sem resposta.
+
+Na história, alertas de severidade baixa entram na sequência mas não contam
+como fase. A confiança é alta com três fases, com entrega seguida de comando,
+ou com duas condutas graves em fases diferentes. Abaixo das sequências, a
+seção **O que aconteceu na rede** descreve cada host (conexões, sem resposta,
+DNS, HTTP, volume) com ou sem alerta.
 
 Domínios de infraestrutura muito comum (Microsoft, Google, Apple, CAs...) só
 rebaixam a severidade: o alerta nunca some. A tabela de regras existe em dois
