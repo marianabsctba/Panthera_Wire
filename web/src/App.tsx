@@ -1,20 +1,22 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import {
-  Activity, AlertTriangle, Clock, Download, FileUp, Globe, LayoutDashboard, Lock, Network, Server, ShieldCheck,
+  Activity, AlertTriangle, Clock, Download, FileUp, Globe, Languages, LayoutDashboard, Lock, Network, Server,
+  ShieldCheck,
 } from "lucide-react";
+import { ContextoIdioma, IDIOMAS, TEXTOS, idiomaInicial, salvarIdioma, type Idioma, type Textos } from "./idiomas";
 
 const LOGO = `${import.meta.env.BASE_URL}pantera.webp`;
 
-const MENU = [
-  { rotulo: "Visão geral", icone: LayoutDashboard },
-  { rotulo: "Alertas", icone: AlertTriangle },
-  { rotulo: "Linha do tempo", icone: Clock },
-  { rotulo: "Fluxos", icone: Activity },
-  { rotulo: "Hosts", icone: Server },
-  { rotulo: "DNS", icone: Globe },
-  { rotulo: "TLS", icone: Lock },
-  { rotulo: "HTTP", icone: Network },
-  { rotulo: "Exportar", icone: Download },
+const MENU: { chave: keyof Textos["menu"]; icone: typeof Activity }[] = [
+  { chave: "visaoGeral", icone: LayoutDashboard },
+  { chave: "alertas", icone: AlertTriangle },
+  { chave: "linhaDoTempo", icone: Clock },
+  { chave: "fluxos", icone: Activity },
+  { chave: "hosts", icone: Server },
+  { chave: "dns", icone: Globe },
+  { chave: "tls", icone: Lock },
+  { chave: "http", icone: Network },
+  { chave: "exportar", icone: Download },
 ];
 
 function tamanho(bytes: number): string {
@@ -26,9 +28,13 @@ function tamanho(bytes: number): string {
 }
 
 export default function App() {
+  const [idioma, setIdioma] = useState<Idioma>(idiomaInicial);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [arrastando, setArrastando] = useState(false);
   const seletor = useRef<HTMLInputElement>(null);
+  const t = TEXTOS[idioma];
+
+  useEffect(() => salvarIdioma(idioma), [idioma]);
 
   function soltar(e: DragEvent) {
     e.preventDefault();
@@ -38,80 +44,88 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="topo">
-        <a href={import.meta.env.BASE_URL} className="marca">
-          <img src={LOGO} alt="" />
-          <div>
-            <div className="nome">PANTHERA WIRE</div>
-            <div className="lema">See beyond the packets.</div>
-          </div>
-        </a>
-        <span className="topo-privacidade">
-          <ShieldCheck size={15} /> Sua captura não sai deste navegador
-        </span>
-      </header>
-
-      <div className="corpo">
-        <nav className="menu">
-          {MENU.map(({ rotulo, icone: Icone }, i) => (
-            <a key={rotulo} className={i === 0 ? "active" : arquivo ? "" : "desativado"}>
-              <Icone size={16} /> {rotulo}
-            </a>
-          ))}
-        </nav>
-
-        <main className="conteudo">
-          <div className="cabecalho">
+    <ContextoIdioma.Provider value={t}>
+      <div className="app">
+        <header className="topo">
+          <a href={import.meta.env.BASE_URL} className="marca">
+            <img src={LOGO} alt="" />
             <div>
-              <h1>Abrir captura</h1>
-              <div className="suave">Entenda o que aconteceu na rede sem ler pacote por pacote.</div>
+              <div className="nome">PANTHERA WIRE</div>
+              <div className="lema">See beyond the packets.</div>
             </div>
-          </div>
+          </a>
+          <span className="topo-privacidade">
+            <ShieldCheck size={15} /> {t.privacidadeTopo}
+          </span>
+          <label className="seletor-idioma" title={t.idioma}>
+            <Languages size={15} />
+            <select aria-label={t.idioma} value={idioma} onChange={(e) => setIdioma(e.target.value as Idioma)}>
+              {IDIOMAS.map(({ codigo, nome }) => <option key={codigo} value={codigo}>{nome}</option>)}
+            </select>
+          </label>
+        </header>
 
-          <div
-            className={`zona ${arrastando ? "ativa" : ""}`}
-            onClick={() => seletor.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setArrastando(true); }}
-            onDragLeave={() => setArrastando(false)}
-            onDrop={soltar}
-          >
-            <FileUp size={34} />
-            <p>Arraste um arquivo <b>pcap</b> ou <b>pcapng</b> aqui, ou clique para escolher.</p>
-            <p className="fraco">Capturas de vários GB são lidas aos poucos, sem travar a página.</p>
-            <input
-              ref={seletor}
-              type="file"
-              accept=".pcap,.pcapng,.cap"
-              hidden
-              onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
-            />
-          </div>
+        <div className="corpo">
+          <nav className="menu">
+            {MENU.map(({ chave, icone: Icone }, i) => (
+              <a key={chave} className={i === 0 ? "active" : arquivo ? "" : "desativado"}>
+                <Icone size={16} /> {t.menu[chave]}
+              </a>
+            ))}
+          </nav>
 
-          {arquivo && (
-            <div className="bloco destaque-rosa">
-              <div className="mono">{arquivo.name}</div>
-              <div className="suave">{tamanho(arquivo.size)}</div>
-              <p className="fraco">A leitura de capturas chega na próxima versão.</p>
+          <main className="conteudo">
+            <div className="cabecalho">
+              <div>
+                <h1>{t.abrirCaptura}</h1>
+                <div className="suave">{t.subtitulo}</div>
+              </div>
             </div>
-          )}
 
-          <div className="cartoes">
-            <div className="cartao">
-              <div className="rotulo">Privacidade</div>
-              <div className="valor destaque">100% local</div>
+            <div
+              className={`zona ${arrastando ? "ativa" : ""}`}
+              onClick={() => seletor.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setArrastando(true); }}
+              onDragLeave={() => setArrastando(false)}
+              onDrop={soltar}
+            >
+              <FileUp size={34} />
+              <p>{t.arraste[0]}<b>pcap</b>{t.arraste[1]}<b>pcapng</b>{t.arraste[2]}</p>
+              <p className="fraco">{t.capturasGrandes}</p>
+              <input
+                ref={seletor}
+                type="file"
+                accept=".pcap,.pcapng,.cap"
+                hidden
+                onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+              />
             </div>
-            <div className="cartao">
-              <div className="rotulo">Formatos</div>
-              <div className="valor">pcap · pcapng</div>
+
+            {arquivo && (
+              <div className="bloco destaque-rosa">
+                <div className="mono">{arquivo.name}</div>
+                <div className="suave">{tamanho(arquivo.size)}</div>
+                <p className="fraco">{t.emBreve}</p>
+              </div>
+            )}
+
+            <div className="cartoes">
+              <div className="cartao">
+                <div className="rotulo">{t.cartaoPrivacidade}</div>
+                <div className="valor destaque">{t.valorPrivacidade}</div>
+              </div>
+              <div className="cartao">
+                <div className="rotulo">{t.cartaoFormatos}</div>
+                <div className="valor">pcap · pcapng</div>
+              </div>
+              <div className="cartao">
+                <div className="rotulo">{t.cartaoExportacao}</div>
+                <div className="valor">JSON · CSV · STIX</div>
+              </div>
             </div>
-            <div className="cartao">
-              <div className="rotulo">Exportação</div>
-              <div className="valor">JSON · CSV · STIX</div>
-            </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
+    </ContextoIdioma.Provider>
   );
 }

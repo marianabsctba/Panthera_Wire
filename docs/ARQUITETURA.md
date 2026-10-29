@@ -163,7 +163,15 @@ releases (Windows, Linux, macOS).
 | 3 | Protocolos de rede corporativa (SMB, Kerberos, LDAP), extração de arquivos, CLI |
 | 4 | Opcional: serviço no VPS que recebe só dados derivados (IOCs, resumo), nunca o pcap |
 
+## Idiomas
+
+A interface sai em **português, inglês e espanhol**. Os textos ficam em
+`web/src/idiomas.ts`, um dicionário por idioma com o mesmo formato (o
+TypeScript acusa chave faltando). O idioma inicial vem da escolha salva da
+pessoa, senão do navegador, senão inglês. Relatórios e alertas seguem o idioma
+escolhido; nomes de campos nas exportações (JSON, CSV, STIX) ficam fixos em
+inglês para não quebrar integrações.
+
 ## Decisões em aberto
 
 - Licença (sugestão: Apache-2.0).
-- Idioma da interface: português, inglês ou os dois desde o início.

@@ -16,6 +16,7 @@ que merece atenção.
   TLS e HTTP.
 - **Alertas explicados**, com a técnica MITRE ATT&CK quando houver.
 - **Exportação** em JSON, CSV de IOCs e STIX 2.1.
+- **Interface em português, inglês e espanhol.**
 
 > Em construção. O plano completo está em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 

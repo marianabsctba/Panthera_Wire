@@ -77,6 +77,8 @@ input:focus, select:focus, button:focus-visible { outline: 1px solid var(--rosa)
 .marca .lema { font-size: 11px; color: var(--texto-2); }
 .topo-privacidade { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--texto-2); }
 .topo-privacidade svg { color: var(--rosa); }
+.seletor-idioma { display: inline-flex; align-items: center; gap: 6px; color: var(--texto-2); }
+.seletor-idioma select { padding: 4px 8px; font-size: 12px; }
 
 .corpo { display: grid; grid-template-columns: 190px minmax(0, 1fr); min-height: 0; }
 .menu { border-right: 1px solid var(--borda); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
@@ -134,5 +136,6 @@ tr.clicavel:hover td { background: var(--painel); }
   .corpo { grid-template-columns: 1fr; }
   .menu { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--borda); }
   .marca .lema, .topo-privacidade { display: none; }
+  .seletor-idioma { margin-left: auto; }
   .conteudo { padding: 16px; }
 }
