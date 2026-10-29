@@ -2,7 +2,10 @@
 
 Cenário: uma estação recebe IP por DHCP, baixa um executável por HTTP,
 navega por TLS, passa a fazer beaconing a cada 60 s para um domínio estranho,
-tenta RDP numa máquina que recusa e abre SMB com o servidor de arquivos.
+tenta RDP numa máquina que recusa, varre portas, abre SMB com três servidores,
+manda senha em HTTP Basic, consulta domínios gerados por algoritmo, faz túnel
+DNS, envia 65 MB para o servidor de comando e baixa uma segunda etapa por curl.
+Outra estação fala com o mesmo servidor de comando.
 
     python scripts/gerar_amostra.py amostras/
     python scripts/gerar_amostra.py --grande 1024 /tmp/   # ~1 GB para teste de desempenho
@@ -146,6 +149,68 @@ def cenario(desvio=0.0, porta_base=50000):
     de_estacao(50.0, "10.0.0.20", 6, tcp(porta_base + 31, 445, SYN), mac_destino=MAC_SERVIDOR)
     add(50.001, ethernet(MAC_SERVIDOR, MAC_ESTACAO, 0x0800, ipv4("10.0.0.20", ESTACAO, 6, tcp(445, porta_base + 31, SYN | ACK))))
     de_estacao(50.002, "10.0.0.20", 6, tcp(porta_base + 31, 445, ACK), mac_destino=MAC_SERVIDOR)
+
+    def interno(t, servidor, porta, porta_cliente, recusa=False):
+        de_estacao(t, servidor, 6, tcp(porta_cliente, porta, SYN), mac_destino=MAC_SERVIDOR)
+        if recusa:
+            add(t + 0.001, ethernet(MAC_SERVIDOR, MAC_ESTACAO, 0x0800, ipv4(servidor, ESTACAO, 6, tcp(porta, porta_cliente, RST | ACK))))
+        else:
+            add(t + 0.001, ethernet(MAC_SERVIDOR, MAC_ESTACAO, 0x0800, ipv4(servidor, ESTACAO, 6, tcp(porta, porta_cliente, SYN | ACK))))
+            de_estacao(t + 0.002, servidor, 6, tcp(porta_cliente, porta, ACK), mac_destino=MAC_SERVIDOR)
+
+    # Varredura de portas num servidor interno
+    for i, porta in enumerate(range(20, 46)):
+        interno(660.0 + i * 0.05, "10.0.0.30", porta, porta_base + 100 + i, recusa=True)
+
+    # SMB para mais dois servidores (movimentação lateral)
+    interno(700.0, "10.0.0.21", 445, porta_base + 140)
+    interno(701.0, "10.0.0.22", 445, porta_base + 141)
+
+    # Intranet com senha em HTTP Basic
+    basic = b"GET /admin HTTP/1.1\r\nHost: intranet.local\r\nAuthorization: Basic YWRtaW46c2VuaGExMjM=\r\nUser-Agent: Mozilla/5.0\r\n\r\n"
+    de_estacao(720.0, "10.0.0.40", 6, tcp(porta_base + 150, 80, SYN), mac_destino=MAC_SERVIDOR)
+    add(720.001, ethernet(MAC_SERVIDOR, MAC_ESTACAO, 0x0800, ipv4("10.0.0.40", ESTACAO, 6, tcp(80, porta_base + 150, SYN | ACK))))
+    de_estacao(720.002, "10.0.0.40", 6, tcp(porta_base + 150, 80, PSH | ACK, basic), mac_destino=MAC_SERVIDOR)
+    add(720.01, ethernet(MAC_SERVIDOR, MAC_ESTACAO, 0x0800, ipv4("10.0.0.40", ESTACAO, 6,
+        tcp(80, porta_base + 150, PSH | ACK, b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html>"))))
+
+    # Domínios gerados por algoritmo, que não existem
+    for i in range(20):
+        nome = "".join("abcdefghijklmnopqrstuvwxyz0123456789"[(i * 7 + k * 13) % 36] for k in range(14)) + ".biz"
+        de_estacao(740.0 + i * 0.5, DNS_LOCAL, 17, udp(porta_base + 200 + i, 53, dns_consulta(0x2000 + i, nome)))
+        para_estacao(740.01 + i * 0.5, DNS_LOCAL, 17, udp(53, porta_base + 200 + i, dns_resposta(0x2000 + i, nome, [], rcode=3)))
+
+    # Túnel DNS: dados codificados em subdomínios longos, consultas TXT
+    for i in range(40):
+        rotulo = "".join("0123456789abcdef"[(i * 31 + k * 7) % 16] for k in range(48))
+        nome = f"{rotulo}.t.exfil-dns.net"
+        de_estacao(760.0 + i * 0.3, DNS_LOCAL, 17, udp(porta_base + 300 + i, 53, dns_consulta(0x3000 + i, nome, tipo=16)))
+        para_estacao(760.01 + i * 0.3, DNS_LOCAL, 17, udp(53, porta_base + 300 + i, dns_resposta(0x3000 + i, nome, [])))
+
+    # Exfiltração: 65 MB enviados para o mesmo servidor do beaconing
+    pc = porta_base + 400
+    de_estacao(800.0, "198.51.100.7", 6, tcp(pc, 443, SYN))
+    para_estacao(800.02, "198.51.100.7", 6, tcp(443, pc, SYN | ACK))
+    de_estacao(800.021, "198.51.100.7", 6, tcp(pc, 443, PSH | ACK, client_hello("cdn-sync.top")))
+    para_estacao(800.05, "198.51.100.7", 6, tcp(443, pc, PSH | ACK, server_hello()))
+    for i in range(1000):
+        de_estacao(800.1 + i * 0.01, "198.51.100.7", 6, tcp(pc, 443, ACK, b"\x17\x03\x03"), original=65000)
+    de_estacao(811.0, "198.51.100.7", 6, tcp(pc, 443, FIN | ACK))
+
+    # Segunda etapa por curl
+    pedido = b"GET /stage2.ps1 HTTP/1.1\r\nHost: 203.0.113.50\r\nUser-Agent: curl/8.4.0\r\n\r\n"
+    resposta = b"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: 4096\r\n\r\n$c="
+    conexao(850.0, "203.0.113.50", 80, pedido, resposta, porta_base + 410)
+
+    # Outra estação falando com o mesmo servidor de comando
+    outra = "10.0.0.8"
+    mac_outra = bytes.fromhex("3c52820a0b0d")
+    for i in range(3):
+        po = porta_base + 500 + i
+        t = 900.0 + i * 60
+        add(t, ethernet(mac_outra, MAC_ROTEADOR, 0x0800, ipv4(outra, "198.51.100.7", 6, tcp(po, 443, SYN))))
+        add(t + 0.02, ethernet(MAC_ROTEADOR, mac_outra, 0x0800, ipv4("198.51.100.7", outra, 6, tcp(443, po, SYN | ACK))))
+        add(t + 0.03, ethernet(mac_outra, MAC_ROTEADOR, 0x0800, ipv4(outra, "198.51.100.7", 6, tcp(po, 443, PSH | ACK, client_hello("cdn-sync.top")))))
 
     p.sort(key=lambda x: x[0])
     return p

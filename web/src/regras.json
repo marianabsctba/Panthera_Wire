@@ -1,0 +1,14 @@
+[
+  { "regra": "beaconing", "tecnica": "T1071", "fase": "comando_e_controle", "d3fend": ["D3-PMAD"] },
+  { "regra": "download_executavel", "tecnica": "T1105", "fase": "entrega", "d3fend": ["D3-APCA"] },
+  { "regra": "dga", "tecnica": "T1568.002", "fase": "comando_e_controle", "d3fend": ["D3-DNSTA"] },
+  { "regra": "tunel_dns", "tecnica": "T1071.004", "fase": "exfiltracao", "d3fend": ["D3-DNSTA"] },
+  { "regra": "credencial_em_claro", "tecnica": "T1552", "fase": "credenciais", "d3fend": ["D3-APCA"] },
+  { "regra": "varredura_portas", "tecnica": "T1046", "fase": "descoberta", "d3fend": ["D3-CAA"] },
+  { "regra": "varredura_hosts", "tecnica": "T1046", "fase": "descoberta", "d3fend": ["D3-CAA"] },
+  { "regra": "movimentacao_lateral", "tecnica": "T1021", "fase": "movimentacao_lateral", "d3fend": ["D3-ANAA", "D3-RTSD"] },
+  { "regra": "exfiltracao_volume", "tecnica": "T1041", "fase": "exfiltracao", "d3fend": ["D3-PHDURA"] },
+  { "regra": "tls_antigo", "tecnica": null, "fase": "higiene", "d3fend": ["D3-PMAD"] },
+  { "regra": "user_agent_suspeito", "tecnica": "T1071.001", "fase": "comando_e_controle", "d3fend": ["D3-PMAD"] },
+  { "regra": "porta_incomum", "tecnica": "T1571", "fase": "comando_e_controle", "d3fend": ["D3-PMAD"] }
+]

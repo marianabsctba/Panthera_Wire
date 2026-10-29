@@ -2,7 +2,7 @@
 //! desde 1970 (cabem com folga num número do JavaScript). Textos que a
 //! interface traduz saem como códigos, nunca como frases.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
 
 use serde::Serialize;
@@ -24,6 +24,62 @@ pub struct Relatorio {
     pub total_tls: u64,
     pub dhcp: Vec<EventoDhcp>,
     pub total_dhcp: u64,
+    pub alertas: Vec<Alerta>,
+    pub historia: Historia,
+}
+
+/// Algo que merece atenção, com a evidência. O texto é montado pela
+/// interface a partir de `regra` e `parametros`, no idioma escolhido.
+#[derive(Serialize)]
+pub struct Alerta {
+    pub id: u32,
+    pub regra: &'static str,
+    /// baixa, media, alta
+    pub severidade: &'static str,
+    /// Fase do ataque em que o fato se encaixa (ver `historia`).
+    pub fase: &'static str,
+    /// Técnica MITRE ATT&CK, quando houver uma que se aplique.
+    pub tecnica: Option<&'static str>,
+    pub inicio_us: u64,
+    pub fim_us: u64,
+    /// Host principal envolvido (quem iniciou).
+    pub host: IpAddr,
+    /// Destino, domínio ou o que for o alvo, já em texto.
+    pub alvo: Option<String>,
+    pub alvo_ip: Option<IpAddr>,
+    pub parametros: BTreeMap<&'static str, String>,
+    /// Fluxos que sustentam o alerta (no máximo 200).
+    pub fluxos: Vec<u32>,
+}
+
+#[derive(Serialize)]
+pub struct Historia {
+    pub paciente_zero: Option<IpAddr>,
+    /// Outros hosts internos envolvidos: com alertas próprios ou que falaram
+    /// com os mesmos destinos suspeitos do paciente zero.
+    pub hosts_afetados: Vec<IpAddr>,
+    pub cadeias: Vec<Cadeia>,
+    /// O que a captura não permite afirmar, em códigos.
+    pub nao_mostra: Vec<&'static str>,
+}
+
+#[derive(Serialize)]
+pub struct Cadeia {
+    pub host: IpAddr,
+    /// baixa, media, alta
+    pub confianca: &'static str,
+    pub inicio_us: u64,
+    pub fim_us: u64,
+    pub passos: Vec<Passo>,
+}
+
+#[derive(Serialize)]
+pub struct Passo {
+    pub alerta: u32,
+    pub ts_us: u64,
+    pub fase: &'static str,
+    /// Por que este passo se liga ao anterior: mesmo_destino, pouco_depois, depois.
+    pub ligacao: Option<&'static str>,
 }
 
 #[derive(Serialize)]

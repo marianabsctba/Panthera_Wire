@@ -12,6 +12,8 @@ mod aplicacao;
 mod bytes;
 mod captura;
 mod decodificacao;
+mod deteccao;
+mod historia;
 pub mod relatorio;
 
 pub use analise::{Analise, Progresso};

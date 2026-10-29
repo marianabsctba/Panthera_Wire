@@ -2,7 +2,7 @@
 //! eventos de aplicação e entrega o relatório no fim.
 
 use std::cmp::Reverse;
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::net::IpAddr;
 
 use serde::Serialize;
@@ -11,6 +11,7 @@ use crate::aplicacao::{dhcp, dns, http, tls};
 use crate::bytes::mac_texto;
 use crate::captura::{ErroCaptura, LeitorCaptura, PacoteBruto};
 use crate::decodificacao::{self as dec, Rede, Transporte, TCP_ACK, TCP_FIN, TCP_RST, TCP_SYN};
+use crate::{deteccao, historia};
 use crate::relatorio::{
     Aviso, Contagem, EventoDhcp, EventoDns, EventoHttp, EventoTls, Fluxo, Host, Relatorio, ResumoCaptura,
 };
@@ -573,16 +574,38 @@ impl Estado {
             c.fluxos += 1;
         }
 
+        let total_fluxos = self.fluxos.len() as u64 + self.fluxos_ignorados;
+        let mut fluxos: Vec<Fluxo> = self.fluxos.into_iter().map(|fi| fi.f).collect();
+
+        // Detecção e história olham a captura inteira, antes de qualquer corte.
+        let alertas = deteccao::detectar(&deteccao::Dados {
+            fluxos: &fluxos,
+            dns: &self.dns,
+            http: &self.http,
+            tls: &self.tls,
+            nomes: &self.nomes,
+        });
+        let historia = historia::montar(&historia::Contexto {
+            alertas: &alertas,
+            fluxos: &fluxos,
+            tem_tls: self.total_tls > 0,
+            tem_avisos: !avisos.is_empty(),
+        });
+
         for (ip, nomes) in std::mem::take(&mut self.nomes) {
             if let Some(h) = self.hosts.get_mut(&ip) {
                 h.nomes.extend(nomes.into_iter().take(MAX_NOMES_POR_HOST));
             }
         }
 
-        let total_fluxos = self.fluxos.len() as u64 + self.fluxos_ignorados;
-        let mut fluxos: Vec<Fluxo> = self.fluxos.into_iter().map(|fi| fi.f).collect();
+        // Os maiores fluxos vão para a interface, e os que são evidência de
+        // algum alerta vão sempre, mesmo pequenos.
+        let evidencias: HashSet<u32> = alertas.iter().flat_map(|a| a.fluxos.iter().copied()).collect();
         fluxos.sort_unstable_by_key(|f| Reverse(f.bytes_ida + f.bytes_volta));
-        fluxos.truncate(SAIDA_FLUXOS);
+        if fluxos.len() > SAIDA_FLUXOS {
+            let resto = fluxos.split_off(SAIDA_FLUXOS);
+            fluxos.extend(resto.into_iter().filter(|f| evidencias.contains(&f.id)));
+        }
 
         let total_hosts = self.hosts.len() as u64 + self.hosts_ignorados;
         let mut hosts: Vec<Host> = self.hosts.into_values().collect();
@@ -632,6 +655,8 @@ impl Estado {
             total_tls: self.total_tls,
             dhcp,
             total_dhcp: self.total_dhcp,
+            alertas,
+            historia,
         }
     }
 }
