@@ -7,7 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::net::IpAddr;
 
-use crate::decodificacao::escopo;
+use crate::decodificacao::{escopo, lado_de_dentro, lado_de_fora};
 use crate::relatorio::{Alerta, EventoDns, EventoHttp, EventoTls, Fluxo};
 
 pub struct Dados<'a> {
@@ -33,6 +33,7 @@ pub struct Regra {
 pub const REGRAS: &[Regra] = &[
     Regra { regra: "beaconing", tecnica: Some("T1071"), fase: "comando_e_controle", d3fend: &["D3-PMAD"] },
     Regra { regra: "download_executavel", tecnica: Some("T1105"), fase: "entrega", d3fend: &["D3-APCA"] },
+    Regra { regra: "ataque_web", tecnica: Some("T1190"), fase: "acesso_inicial", d3fend: &["D3-APCA"] },
     Regra { regra: "dga", tecnica: Some("T1568.002"), fase: "comando_e_controle", d3fend: &["D3-DNSTA"] },
     Regra { regra: "tunel_dns", tecnica: Some("T1071.004"), fase: "exfiltracao", d3fend: &["D3-DNSTA"] },
     Regra { regra: "credencial_em_claro", tecnica: Some("T1552"), fase: "credenciais", d3fend: &["D3-APCA"] },
@@ -77,8 +78,10 @@ fn interno(ip: &IpAddr) -> bool {
     escopo(ip) == "interno"
 }
 
-fn externo(ip: &IpAddr) -> bool {
-    escopo(ip) == "externo"
+/// De um host da rede observada para um destino lá fora. Com faixas
+/// reservadas (laboratório), as duas pontas podem ser reservadas.
+fn para_fora(origem: &IpAddr, destino: &IpAddr) -> bool {
+    origem != destino && lado_de_dentro(origem) && lado_de_fora(destino) && !(interno(origem) && interno(destino))
 }
 
 impl Dados<'_> {
@@ -145,6 +148,7 @@ pub fn detectar(d: &Dados) -> Vec<Alerta> {
     let mut a = Vec::new();
     beaconing(d, &mut a);
     download_executavel(d, &mut a);
+    ataque_web(d, &mut a);
     dga(d, &mut a);
     tunel_dns(d, &mut a);
     credencial_em_claro(d, &mut a);
@@ -178,7 +182,7 @@ fn mediana(v: &mut [f64]) -> f64 {
 fn beaconing(d: &Dados, saida: &mut Vec<Alerta>) {
     let mut grupos: BTreeMap<(IpAddr, IpAddr, u16, &str), Vec<&Fluxo>> = BTreeMap::new();
     for f in d.fluxos {
-        if interno(&f.origem) && externo(&f.destino) && (f.protocolo == "TCP" || f.protocolo == "UDP") {
+        if para_fora(&f.origem, &f.destino) && (f.protocolo == "TCP" || f.protocolo == "UDP") {
             grupos.entry((f.origem, f.destino, f.porta_destino, f.protocolo)).or_default().push(f);
         }
     }
@@ -281,6 +285,82 @@ fn download_executavel(d: &Dados, saida: &mut Vec<Alerta>) {
     }
 }
 
+/// Padrões clássicos de exploração de aplicação web na URL da requisição.
+/// Cada um é procurado na URL em minúsculas e também já decodificada.
+const PADROES_WEB: &[(&str, &[&str])] = &[
+    ("traversal", &["../", "..\\", "/etc/passwd", "/etc/shadow", "win.ini", "boot.ini"]),
+    ("sqli", &["union select", "' or '1'='1", "' or 1=1", "\" or 1=1", "1=1--", "sleep(", "benchmark(", "information_schema"]),
+    ("xss", &["<script", "javascript:", "onerror=", "onload=", "<svg"]),
+    ("comando", &[";cat ", "|cat ", "$(", "`", ";id", "|id", "cmd.exe", "/bin/sh", "/bin/bash", "powershell"]),
+    ("log4shell", &["${jndi:"]),
+];
+
+/// Decodifica %XX (duas vezes, para pegar a codificação dupla) e + como espaço.
+fn decodificar_url(s: &str) -> String {
+    let mut atual = s.to_owned();
+    for _ in 0..2 {
+        let b = atual.as_bytes();
+        let mut saida = Vec::with_capacity(b.len());
+        let mut i = 0;
+        let hex = |c: u8| (c as char).to_digit(16).map(|v| v as u8);
+        while i < b.len() {
+            if b[i] == b'%' {
+                if let (Some(a), Some(c)) = (b.get(i + 1).copied().and_then(hex), b.get(i + 2).copied().and_then(hex)) {
+                    saida.push(a << 4 | c);
+                    i += 3;
+                    continue;
+                }
+            }
+            saida.push(if b[i] == b'+' { b' ' } else { b[i] });
+            i += 1;
+        }
+        atual = String::from_utf8_lossy(&saida).into_owned();
+    }
+    atual
+}
+
+fn ataque_web(d: &Dados, saida: &mut Vec<Alerta>) {
+    let mut grupos: BTreeMap<(IpAddr, IpAddr, &'static str), (Grupo, String, bool, Option<String>)> = BTreeMap::new();
+    for h in d.http {
+        let url = decodificar_url(&h.caminho).to_ascii_lowercase();
+        let Some((tipo, _)) = PADROES_WEB.iter().find(|(_, ps)| ps.iter().any(|p| url.contains(p))) else { continue };
+        // A primeira URL de cada tipo fica como exemplo.
+        let (g, _, sucesso, _) = grupos.entry((h.cliente, h.servidor, tipo)).or_insert_with(|| {
+            (Grupo::default(), h.caminho.chars().take(160).collect(), false, host_http(h))
+        });
+        g.somar(h.ts_us, h.fluxo);
+        *sucesso |= matches!(h.status, Some(200..=299));
+    }
+    for ((cliente, servidor, tipo), (g, exemplo, sucesso, host)) in grupos {
+        let tentativas = g.fluxos.len();
+        saida.push(alerta(
+            Novo {
+                regra: "ataque_web",
+                // Com resposta 2xx, a exploração pode ter funcionado.
+                severidade: if sucesso { "alta" } else { "media" },
+                host: cliente,
+                alvo: Some(host.unwrap_or_else(|| d.nome_ou_ip(&servidor))),
+                alvo_ip: Some(servidor),
+                parametros: vec![
+                    ("tipo", tipo.into()),
+                    ("exemplo", exemplo),
+                    ("tentativas", tentativas.to_string()),
+                    ("sucesso", sucesso.to_string()),
+                ],
+            },
+            g,
+        ));
+    }
+}
+
+/// Nome pedido no cabeçalho Host, sem a porta. Diz mais do que o nome
+/// aprendido para o IP, que pode ter vários.
+fn host_http(h: &EventoHttp) -> Option<String> {
+    let host = h.host.as_deref()?;
+    let sem_porta = if host.starts_with('[') { host } else { host.split(':').next().unwrap_or(host) };
+    Some(sem_porta.to_owned()).filter(|s| !s.is_empty())
+}
+
 /// Muitos domínios inexistentes consultados pelo mesmo host: típico de
 /// malware que gera nomes por algoritmo até achar o servidor ativo.
 fn dga(d: &Dados, saida: &mut Vec<Alerta>) {
@@ -311,22 +391,6 @@ fn dga(d: &Dados, saida: &mut Vec<Alerta>) {
     }
 }
 
-/// Domínio registrado (aproximado): os dois últimos rótulos, ou três quando
-/// o penúltimo é um sufixo de segundo nível comum (com.br, co.uk...).
-pub fn dominio_base(nome: &str) -> &str {
-    let rotulos: Vec<&str> = nome.trim_end_matches('.').rsplitn(4, '.').collect();
-    let n = if rotulos.len() >= 3
-        && rotulos[0].len() == 2
-        && matches!(rotulos[1], "com" | "net" | "org" | "gov" | "edu" | "co" | "ac")
-    {
-        3
-    } else {
-        2
-    };
-    let tamanho: usize = rotulos.iter().take(n).map(|r| r.len() + 1).sum::<usize>().saturating_sub(1);
-    &nome[nome.len().saturating_sub(tamanho)..]
-}
-
 /// Dados escondidos em subdomínios: muitos nomes únicos e longos sob o mesmo
 /// domínio, muitas vezes com consultas TXT.
 fn tunel_dns(d: &Dados, saida: &mut Vec<Alerta>) {
@@ -339,8 +403,10 @@ fn tunel_dns(d: &Dados, saida: &mut Vec<Alerta>) {
     }
     let mut grupos: BTreeMap<(IpAddr, &str), Acumulado> = BTreeMap::new();
     for e in d.dns {
-        let base = dominio_base(&e.consulta);
-        if base.len() == e.consulta.len() || conhecido(base) {
+        // A zona é o nome sem o primeiro rótulo: em <dados>.t.exemplo.net,
+        // os dados mudam e a zona t.exemplo.net se repete.
+        let Some((_, base)) = e.consulta.split_once('.') else { continue };
+        if !base.contains('.') || conhecido(base) {
             continue;
         }
         let a = grupos.entry((e.cliente, base)).or_insert_with(|| Acumulado {
@@ -358,8 +424,8 @@ fn tunel_dns(d: &Dados, saida: &mut Vec<Alerta>) {
     }
     for ((cliente, base), a) in grupos {
         let media = a.tamanho / a.consultas.max(1);
-        let longo = a.unicos.len() >= 30 && media >= 40;
-        let txt = a.txt >= 30 && a.unicos.len() >= 10;
+        let longo = a.unicos.len() >= 20 && media >= 40;
+        let txt = a.txt >= 20 && a.unicos.len() >= 10;
         if !longo && !txt {
             continue;
         }
@@ -386,9 +452,18 @@ fn tunel_dns(d: &Dados, saida: &mut Vec<Alerta>) {
 /// fato de que existiu e onde.
 fn credencial_em_claro(d: &Dados, saida: &mut Vec<Alerta>) {
     let mut grupos: BTreeMap<(IpAddr, IpAddr, &str), Grupo> = BTreeMap::new();
+    let mut nomes_http: BTreeMap<(IpAddr, IpAddr), String> = BTreeMap::new();
     for h in d.http {
+        if h.autorizacao.is_some() || h.senha_em_claro {
+            if let Some(n) = host_http(h) {
+                nomes_http.entry((h.cliente, h.servidor)).or_insert(n);
+            }
+        }
         if h.autorizacao.as_deref().is_some_and(|e| e.eq_ignore_ascii_case("basic")) {
             grupos.entry((h.cliente, h.servidor, "HTTP Basic")).or_default().somar(h.ts_us, h.fluxo);
+        }
+        if h.senha_em_claro {
+            grupos.entry((h.cliente, h.servidor, "HTTP")).or_default().somar(h.ts_us, h.fluxo);
         }
     }
     for f in d.fluxos {
@@ -410,7 +485,7 @@ fn credencial_em_claro(d: &Dados, saida: &mut Vec<Alerta>) {
                 regra: "credencial_em_claro",
                 severidade: "media",
                 host: cliente,
-                alvo: Some(d.nome_ou_ip(&servidor)),
+                alvo: Some(nomes_http.get(&(cliente, servidor)).cloned().unwrap_or_else(|| d.nome_ou_ip(&servidor))),
                 alvo_ip: Some(servidor),
                 parametros: vec![("protocolo", protocolo.into())],
             },
@@ -436,7 +511,7 @@ fn varredura(d: &Dados, saida: &mut Vec<Alerta>) {
         g.somar(f.inicio_us, f.id);
     }
     for ((origem, destino), (p, g)) in portas {
-        if p.len() >= 15 {
+        if p.len() >= 10 {
             saida.push(alerta(
                 Novo {
                     regra: "varredura_portas",
@@ -454,7 +529,7 @@ fn varredura(d: &Dados, saida: &mut Vec<Alerta>) {
         }
     }
     for ((origem, porta), (h, g)) in hosts {
-        if h.len() >= 15 {
+        if h.len() >= 10 {
             saida.push(alerta(
                 Novo {
                     regra: "varredura_hosts",
@@ -476,8 +551,8 @@ fn movimentacao_lateral(d: &Dados, saida: &mut Vec<Alerta>) {
     for f in d.fluxos {
         let Some(app) = f.aplicacao else { continue };
         if !matches!(app, "SMB" | "RDP" | "WinRM" | "RPC" | "SSH")
-            || !interno(&f.origem)
-            || !interno(&f.destino)
+            || !lado_de_dentro(&f.origem)
+            || !lado_de_dentro(&f.destino)
             || matches!(f.estado, "sem_resposta" | "recusada")
         {
             continue;
@@ -514,7 +589,7 @@ fn movimentacao_lateral(d: &Dados, saida: &mut Vec<Alerta>) {
 fn exfiltracao(d: &Dados, saida: &mut Vec<Alerta>) {
     let mut grupos: BTreeMap<(IpAddr, IpAddr), (u64, u64, Vec<&Fluxo>)> = BTreeMap::new();
     for f in d.fluxos {
-        if interno(&f.origem) && externo(&f.destino) {
+        if para_fora(&f.origem, &f.destino) {
             let (ida, volta, fs) = grupos.entry((f.origem, f.destino)).or_default();
             *ida += f.bytes_ida;
             *volta += f.bytes_volta;
@@ -619,7 +694,7 @@ fn porta_incomum(d: &Dados, saida: &mut Vec<Alerta>) {
             ),
             _ => true,
         };
-        if !comum && externo(&f.destino) {
+        if !comum && para_fora(&f.origem, &f.destino) {
             grupos.entry((f.origem, f.destino, f.porta_destino, app)).or_default().somar(f.inicio_us, f.id);
         }
     }
@@ -672,11 +747,10 @@ mod testes {
     }
 
     #[test]
-    fn dominios_base() {
-        assert_eq!(dominio_base("a.b.exfil-dns.net"), "exfil-dns.net");
-        assert_eq!(dominio_base("www.banco.com.br"), "banco.com.br");
-        assert_eq!(dominio_base("localhost"), "localhost");
-        assert_eq!(dominio_base("x.y.co.uk"), "y.co.uk");
+    fn url_decodificada() {
+        assert_eq!(decodificar_url("/download?file=..%2F..%2Fetc%2Fpasswd"), "/download?file=../../etc/passwd");
+        assert_eq!(decodificar_url("%252e%252e%252f"), "../");
+        assert_eq!(decodificar_url("a+b%zz"), "a b%zz");
     }
 
     #[test]

@@ -8,6 +8,8 @@ pub enum MensagemHttp {
         user_agent: Option<String>,
         /// Só o esquema (Basic, Bearer...). O valor nunca é guardado.
         autorizacao: Option<String>,
+        /// Havia um campo de senha no formulário ou na URL. O valor nunca é guardado.
+        senha_em_claro: bool,
     },
     Resposta {
         status: u16,
@@ -68,7 +70,21 @@ pub fn ler(c: &[u8]) -> Option<MensagemHttp> {
         host: campo("host", 255),
         user_agent: campo("user-agent", 512),
         autorizacao: campo("authorization", 64).and_then(|v| v.split_whitespace().next().map(str::to_owned)),
+        senha_em_claro: tem_senha(primeira) || corpo(c).is_some_and(tem_senha),
     })
+}
+
+const CAMPOS_DE_SENHA: [&[u8]; 6] = [b"pass=", b"password=", b"passwd=", b"pwd=", b"senha=", b"\"password\":"];
+
+fn tem_senha(b: &[u8]) -> bool {
+    let b = b.to_ascii_lowercase();
+    CAMPOS_DE_SENHA.iter().any(|c| b.windows(c.len()).any(|j| j == *c))
+}
+
+/// O que veio depois dos cabeçalhos no mesmo segmento.
+fn corpo(c: &[u8]) -> Option<&[u8]> {
+    let p = c.windows(4).position(|j| j == b"\r\n\r\n")?;
+    Some(&c[p + 4..c.len().min(p + 4 + 4096)])
 }
 
 fn trim(b: &[u8]) -> &[u8] {
@@ -89,6 +105,16 @@ mod testes {
         assert_eq!(host.as_deref(), Some("intranet.local"));
         assert_eq!(caminho, "/admin");
         assert_eq!(autorizacao.as_deref(), Some("Basic"));
+    }
+
+    #[test]
+    fn senha_no_formulario() {
+        let c = b"POST /login HTTP/1.1\r\nHost: a\r\nContent-Length: 30\r\n\r\nuser=analyst&pass=invalid-demo";
+        let Some(MensagemHttp::Requisicao { senha_em_claro, .. }) = ler(c) else { panic!() };
+        assert!(senha_em_claro);
+        let c = b"GET /busca?q=password HTTP/1.1\r\nHost: a\r\n\r\n";
+        let Some(MensagemHttp::Requisicao { senha_em_claro, .. }) = ler(c) else { panic!() };
+        assert!(!senha_em_claro);
     }
 
     #[test]

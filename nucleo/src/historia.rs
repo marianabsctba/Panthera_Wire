@@ -6,13 +6,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
 
-use crate::decodificacao::escopo;
+use crate::decodificacao::{escopo, lado_de_dentro, lado_de_fora};
 use crate::relatorio::{Alerta, Cadeia, Fluxo, Historia, Passo};
 
 /// Ordem das fases numa intrusão típica. `higiene` fica fora das cadeias.
 fn ordem(fase: &str) -> Option<u8> {
     Some(match fase {
-        "entrega" => 1,
+        "acesso_inicial" | "entrega" => 1,
         "comando_e_controle" => 2,
         "credenciais" => 3,
         "descoberta" => 3,
@@ -35,7 +35,7 @@ pub struct Contexto<'a> {
 pub fn montar(c: &Contexto) -> Historia {
     let mut por_host: BTreeMap<IpAddr, Vec<&Alerta>> = BTreeMap::new();
     for a in c.alertas {
-        if ordem(a.fase).is_some() && escopo(&a.host) == "interno" {
+        if ordem(a.fase).is_some() && escopo(&a.host) != "multicast" {
             por_host.entry(a.host).or_default().push(a);
         }
     }
@@ -51,7 +51,7 @@ pub fn montar(c: &Contexto) -> Historia {
         }
 
         let entrega_e_controle = fatos.iter().any(|e| {
-            e.fase == "entrega"
+            matches!(e.fase, "entrega" | "acesso_inicial")
                 && fatos.iter().any(|c| {
                     c.fase == "comando_e_controle"
                         && c.severidade != "baixa"
@@ -95,7 +95,9 @@ pub fn montar(c: &Contexto) -> Historia {
         "media" => 1,
         _ => 2,
     };
-    cadeias.sort_by_key(|c| (peso(c.confianca), c.inicio_us));
+    // Mais confiança primeiro; no empate, um host da rede observada antes de
+    // um de fora, e o que começou antes.
+    cadeias.sort_by_key(|c| (peso(c.confianca), !lado_de_dentro(&c.host), c.inicio_us));
     let paciente_zero = cadeias.first().map(|c| c.host);
 
     // Escopo: hosts com cadeia própria e hosts internos que falaram com os
@@ -105,12 +107,15 @@ pub fn montar(c: &Contexto) -> Historia {
         let suspeitos: BTreeSet<IpAddr> = c
             .alertas
             .iter()
+            // Só destinos que fazem papel de atacante (comando, entrega,
+            // exfiltração). O alvo de uma varredura ou de um ataque é vítima.
             .filter(|a| a.host == pz && a.severidade != "baixa")
+            .filter(|a| matches!(a.fase, "comando_e_controle" | "entrega" | "exfiltracao"))
             .filter_map(|a| a.alvo_ip)
-            .filter(|ip| escopo(ip) == "externo")
+            .filter(|ip| lado_de_fora(ip) && *ip != pz)
             .collect();
         for f in c.fluxos {
-            if suspeitos.contains(&f.destino) && escopo(&f.origem) == "interno" {
+            if suspeitos.contains(&f.destino) && lado_de_dentro(&f.origem) {
                 afetados.insert(f.origem);
             }
         }

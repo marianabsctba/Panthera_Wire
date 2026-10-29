@@ -438,7 +438,7 @@ impl Estado {
 
     fn evento_http(&mut self, id: u32, o: IpAddr, d: IpAddr, porta: u16, carga: &[u8], ts: u64) {
         match http::ler(carga) {
-            Some(http::MensagemHttp::Requisicao { metodo, caminho, host, user_agent, autorizacao }) => {
+            Some(http::MensagemHttp::Requisicao { metodo, caminho, host, user_agent, autorizacao, senha_em_claro }) => {
                 self.marcar(id, "HTTP");
                 if let Some(h) = &host {
                     let sem_porta = if h.starts_with('[') { h.as_str() } else { h.split(':').next().unwrap_or(h) };
@@ -462,6 +462,7 @@ impl Estado {
                     caminho,
                     user_agent,
                     autorizacao,
+                    senha_em_claro,
                     status: None,
                     tipo_conteudo: None,
                     tamanho: None,

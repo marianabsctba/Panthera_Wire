@@ -172,6 +172,8 @@ pub struct EventoHttp {
     pub caminho: String,
     pub user_agent: Option<String>,
     pub autorizacao: Option<String>,
+    /// Campo de senha no formulário ou na URL (o valor nunca é guardado).
+    pub senha_em_claro: bool,
     pub status: Option<u16>,
     pub tipo_conteudo: Option<String>,
     pub tamanho: Option<u64>,

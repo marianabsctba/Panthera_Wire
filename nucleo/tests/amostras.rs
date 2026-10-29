@@ -96,6 +96,26 @@ fn historia_do_cenario() {
     assert!(h.nao_mostra.contains(&"conteudo_cifrado"));
 }
 
+/// Laboratório com faixas de documentação dos dois lados: as regras não podem
+/// depender de o cliente ter um IP privado.
+#[test]
+fn laboratorio_com_enderecos_de_documentacao() {
+    let r = analisar(include_bytes!("../../amostras/laboratorio.pcap"), 1 << 20);
+    let achados: Vec<(&str, &str)> = r.alertas.iter().map(|a| (a.regra, a.alvo.as_deref().unwrap_or(""))).collect();
+    for esperado in [
+        ("credencial_em_claro", "portal.example.test"),
+        ("ataque_web", "portal.example.test"),
+        ("tunel_dns", "telemetry.example.test"),
+        ("varredura_portas", "portal.example.test"),
+    ] {
+        assert!(achados.contains(&esperado), "faltou {esperado:?} em {achados:?}");
+    }
+    let h = &r.historia;
+    assert_eq!(h.paciente_zero.map(|ip| ip.to_string()).as_deref(), Some("192.0.2.10"));
+    // O scanner atacou a mesma vítima, mas não falou com nenhum destino malicioso.
+    assert!(h.hosts_afetados.is_empty(), "{:?}", h.hosts_afetados);
+}
+
 #[test]
 fn pcap_e_pcapng_dao_o_mesmo_resultado() {
     let a = analisar(PCAP, 4096);

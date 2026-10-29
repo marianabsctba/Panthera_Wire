@@ -242,6 +242,42 @@ def escrever_pcapng(caminho, pacotes):
             f.write(bloco(6, corpo))
 
 
+def laboratorio():
+    """Captura de laboratório só com faixas de documentação (TEST-NET), como as
+    que se monta para treino: cliente 192.0.2.10, servidor 198.51.100.20,
+    scanner 203.0.113.50. Senha em formulário, path traversal, túnel DNS curto
+    (22 consultas TXT) e varredura de 14 portas."""
+    p = []
+    mac_a, mac_b = bytes.fromhex("020000000001"), bytes.fromhex("020000000002")
+    cliente, servidor, dns, scanner = "192.0.2.10", "198.51.100.20", "192.0.2.53", "203.0.113.50"
+
+    def add(t, origem, destino, proto, carga):
+        p.append((t, ethernet(mac_a, mac_b, 0x0800, ipv4(origem, destino, proto, carga)), None))
+
+    def http(t, porta, pedido, resposta):
+        add(t, cliente, servidor, 6, tcp(porta, 80, SYN))
+        add(t + 0.01, servidor, cliente, 6, tcp(80, porta, SYN | ACK))
+        add(t + 0.02, cliente, servidor, 6, tcp(porta, 80, PSH | ACK, pedido))
+        add(t + 0.03, servidor, cliente, 6, tcp(80, porta, PSH | ACK, resposta))
+        add(t + 0.04, cliente, servidor, 6, tcp(porta, 80, FIN | ACK))
+        add(t + 0.05, servidor, cliente, 6, tcp(80, porta, FIN | ACK))
+
+    add(1.0, cliente, dns, 17, udp(53001, 53, dns_consulta(1, "portal.example.test")))
+    add(1.01, dns, cliente, 17, udp(53, 53001, dns_resposta(1, "portal.example.test", [servidor])))
+    http(2.0, 41001, b"GET / HTTP/1.1\r\nHost: portal.example.test\r\nUser-Agent: TestPCAP/1.0\r\n\r\n",
+         b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nOK")
+    http(4.0, 41002, b"POST /login HTTP/1.1\r\nHost: portal.example.test\r\nContent-Length: 30\r\n\r\nuser=analyst&pass=invalid-demo",
+         b"HTTP/1.1 401 Unauthorized\r\n\r\nDENIED!")
+    for i, porta in enumerate([21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 3389, 8080, 8443]):
+        add(6.0 + i * 0.01, scanner, servidor, 6, tcp(50000 + i, porta, SYN))
+    for i in range(22):
+        rotulo = "".join("0123456789abcdef"[(i * 11 + k * 5) % 16] for k in range(30))
+        add(8.0 + i * 0.2, cliente, dns, 17, udp(54000 + i, 53, dns_consulta(0x100 + i, f"{rotulo}.telemetry.example.test", tipo=16)))
+    http(14.0, 41005, b"GET /download?file=..%2F..%2Fetc%2Fpasswd HTTP/1.1\r\nHost: portal.example.test\r\n\r\n",
+         b"HTTP/1.1 403 Forbidden\r\n\r\nBLOCKED")
+    return [(t, q, len(q)) for t, q, _ in sorted(p, key=lambda x: x[0])]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("destino", type=Path)
@@ -267,7 +303,8 @@ def main():
     pacotes = cenario()
     escrever_pcap(a.destino / "exemplo.pcap", pacotes)
     escrever_pcapng(a.destino / "exemplo.pcapng", pacotes)
-    print(f"{len(pacotes)} pacotes em {a.destino}")
+    escrever_pcap(a.destino / "laboratorio.pcap", laboratorio())
+    print(f"{len(pacotes)} pacotes em {a.destino} (mais o laboratório)")
 
 
 if __name__ == "__main__":

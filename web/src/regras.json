@@ -1,6 +1,7 @@
 [
   { "regra": "beaconing", "tecnica": "T1071", "fase": "comando_e_controle", "d3fend": ["D3-PMAD"] },
   { "regra": "download_executavel", "tecnica": "T1105", "fase": "entrega", "d3fend": ["D3-APCA"] },
+  { "regra": "ataque_web", "tecnica": "T1190", "fase": "acesso_inicial", "d3fend": ["D3-APCA"] },
   { "regra": "dga", "tecnica": "T1568.002", "fase": "comando_e_controle", "d3fend": ["D3-DNSTA"] },
   { "regra": "tunel_dns", "tecnica": "T1071.004", "fase": "exfiltracao", "d3fend": ["D3-DNSTA"] },
   { "regra": "credencial_em_claro", "tecnica": "T1552", "fase": "credenciais", "d3fend": ["D3-APCA"] },

@@ -234,6 +234,10 @@ fn arp(c: &[u8]) -> Option<Arp> {
 }
 
 /// Escopo de um endereço, para separar a rede observada do resto do mundo.
+///
+/// `reservado` são as faixas de documentação e testes (TEST-NET, 198.18/15,
+/// 2001:db8::/32). Não existem na internet, então aparecem em laboratórios e
+/// capturas sintéticas, e as regras as tratam como podendo estar dos dois lados.
 pub fn escopo(ip: &IpAddr) -> &'static str {
     match ip {
         IpAddr::V4(v) => {
@@ -247,6 +251,8 @@ pub fn escopo(ip: &IpAddr) -> &'static str {
                 || (o[0] == 100 && (64..128).contains(&o[1]))
             {
                 "interno"
+            } else if matches!(o, [192, 0, 2, _] | [198, 51, 100, _] | [203, 0, 113, _]) || (o[0] == 198 && (o[1] & 0xfe) == 18) {
+                "reservado"
             } else {
                 "externo"
             }
@@ -257,11 +263,23 @@ pub fn escopo(ip: &IpAddr) -> &'static str {
                 "multicast"
             } else if v.is_loopback() || v.is_unspecified() || (s[0] & 0xfe00) == 0xfc00 || (s[0] & 0xffc0) == 0xfe80 {
                 "interno"
+            } else if s[0] == 0x2001 && s[1] == 0x0db8 {
+                "reservado"
             } else {
                 "externo"
             }
         }
     }
+}
+
+/// Pode ser a rede observada (o lado de dentro).
+pub fn lado_de_dentro(ip: &IpAddr) -> bool {
+    matches!(escopo(ip), "interno" | "reservado")
+}
+
+/// Pode ser um destino lá fora.
+pub fn lado_de_fora(ip: &IpAddr) -> bool {
+    matches!(escopo(ip), "externo" | "reservado")
 }
 
 #[cfg(test)]
@@ -298,6 +316,9 @@ mod testes {
         assert_eq!(escopo(&"192.168.0.10".parse().unwrap()), "interno");
         assert_eq!(escopo(&"100.70.1.1".parse().unwrap()), "interno");
         assert_eq!(escopo(&"8.8.8.8".parse().unwrap()), "externo");
+        assert_eq!(escopo(&"198.51.100.20".parse().unwrap()), "reservado");
+        assert_eq!(escopo(&"198.19.0.1".parse().unwrap()), "reservado");
+        assert_eq!(escopo(&"2001:db8::1".parse().unwrap()), "reservado");
         assert_eq!(escopo(&"224.0.0.251".parse().unwrap()), "multicast");
         assert_eq!(escopo(&"fe80::1".parse().unwrap()), "interno");
         assert_eq!(escopo(&"2001:4860::8888".parse().unwrap()), "externo");
