@@ -17,6 +17,22 @@ quem, o que foi resolvido, baixado e enviado, e o que merece atenção.
 4. **Resumo antes do detalhe.** A primeira tela responde "o que aconteceu aqui?".
    O pacote individual é o último nível, não o primeiro.
 
+## Diferenciais
+
+O que nenhuma outra ferramenta junta, e que guia as prioridades:
+
+1. **A captura vira uma história.** Os eventos são correlacionados nas fases de
+   um ataque e viram uma narrativa em linguagem natural, em que cada frase leva
+   à evidência. Sem IA e sem internet: é determinístico e auditável.
+2. **Anonimizador.** Gera um pcap sanitizado, com endereços trocados de forma
+   consistente e credenciais e conteúdo removidos, para compartilhar com a
+   comunidade, pedir ajuda ou montar treinamento.
+3. **Funciona offline.** Instala como aplicativo pelo navegador e roda em rede
+   isolada, sem instalar nada.
+
+Detalhes de cada um nas seções "História da captura", "Anonimizador" e
+"Offline", mais abaixo.
+
 ## Estrutura do repositório
 
 ```
@@ -127,6 +143,93 @@ com a técnica ATT&CK quando houver.
   (T1041).
 - **Portas e serviços incomuns** para o protocolo detectado.
 
+## História da captura
+
+É a primeira tela depois que a captura termina de ser lida. Responde, em
+texto corrido, o que aconteceu, em que ordem e com que confiança.
+
+```
+fluxos, eventos de aplicação, alertas
+   │
+   ▼
+Fatos  ──►  Grafo de entidades  ──►  Cadeias  ──►  Narrativa
+```
+
+- **Fatos:** cada evento relevante vira um fato com horário, entidades
+  envolvidas (host, IP, domínio, arquivo, certificado), tática ATT&CK e os ids
+  das evidências. Exemplo: "host 10.0.0.5 baixou executável de 2 MB de
+  update-cdn.xyz por HTTP".
+- **Grafo de entidades:** liga os fatos pelas entidades em comum. É ele que
+  permite dizer que o domínio do download é o mesmo que depois recebe o
+  beaconing.
+- **Cadeias:** regras de sequência no tempo sobre o grafo, cada uma com uma
+  confiança. Exemplos:
+  - download de executável → conexão periódica nova do mesmo host em até N
+    minutos = possível infecção seguida de C2;
+  - autenticação Kerberos ou NTLM de uma estação → SMB para várias outras
+    estações = possível movimentação lateral;
+  - consulta a muitos subdomínios longos do mesmo domínio + volume de saída =
+    possível exfiltração por DNS.
+- **Paciente zero e escopo:** a primeira entidade interna de cada cadeia é
+  destacada, e a narrativa diz quais outros hosts foram tocados depois.
+- **Narrativa:** gerada por modelos de frase, em cada idioma da interface,
+  agrupada por fase (reconhecimento, acesso inicial, execução, C2, movimentação
+  lateral, exfiltração). Cada frase é clicável e abre as evidências. No final,
+  uma seção **"O que esta captura não mostra"** diz o que não dá para afirmar,
+  como o conteúdo de tráfego cifrado e o período fora da captura.
+- **Ruído:** o tráfego reconhecidamente comum (atualizações do sistema, CDNs,
+  telemetria de navegadores) é rebaixado usando listas de domínios embutidas
+  no site, carregadas sob demanda. Nada é consultado na internet.
+- **Captura sem nada suspeito** gera uma história também: quem eram os hosts,
+  o que fizeram e por que nada se destacou.
+
+As regras de cadeia ficam em arquivos declarativos versionados no repositório,
+o que prepara o terreno para as regras da comunidade numa fase futura.
+
+## Anonimizador
+
+Gera uma nova captura a partir da original, sem alterar o arquivo de origem.
+Roda no mesmo worker, numa segunda passada em streaming, e funciona com
+arquivos de GB.
+
+| Item | O que acontece (padrão em negrito) |
+|---|---|
+| IPv4 e IPv6 | **troca consistente que preserva prefixo** (mesma rede continua mesma rede), ou troca simples |
+| MAC | **troca consistente** mantendo o fabricante (OUI) opcionalmente |
+| Nomes internos (DNS, DHCP, NetBIOS, SNI, Kerberos) | **trocados por nomes genéricos consistentes**; domínios públicos podem ser mantidos |
+| Credenciais, cookies, tokens, cabeçalhos de autorização | **sempre removidos** |
+| Conteúdo dos pacotes | **mantém só cabeçalhos** ou corta em N bytes, ou mantém com mascaramento dos protocolos conhecidos |
+| Horários | **mantidos** ou deslocados por um valor fixo |
+| Checksums | recalculados |
+
+- **Chave da sessão:** a troca consistente usa uma chave aleatória gerada no
+  navegador. Ela não é salva, a não ser que a pessoa queira anonimizar várias
+  capturas com a mesma correspondência.
+- **Tabela de correspondência** (original → anônimo) é opcional, exportada à
+  parte e marcada como sensível.
+- **Relatório de anonimização:** o que foi trocado, removido e mantido, e o
+  **risco residual** (por exemplo: conteúdo de protocolo desconhecido mantido,
+  padrões de tempo que podem identificar alguém). A interface é honesta: dados
+  anonimizados reduzem o risco, mas não o eliminam.
+- **Gravação de arquivo grande:** a saída é escrita em blocos no armazenamento
+  local do navegador (OPFS) e baixada no final, sem montar o arquivo inteiro
+  na memória. Onde o navegador permite escolher o destino, grava direto no
+  disco.
+- O mesmo módulo do núcleo é usado pela CLI.
+
+## Offline
+
+- **Aplicativo instalável (PWA):** manifesto e service worker que guardam todos
+  os arquivos do site, incluindo o núcleo WASM e as listas de domínios. Depois
+  da primeira visita, abre sem internet.
+- **Pacote para rede isolada:** cada release publica um ZIP do site pronto para
+  ser servido por qualquer servidor interno (ou aberto com um servidor local de
+  uma linha), para SOCs sem acesso à internet.
+- **Atualização:** quando há versão nova, a interface avisa e a pessoa escolhe
+  a hora de atualizar. Uma análise em andamento nunca é interrompida.
+- Combina com a política de conteúdo: como a página não faz requisições depois
+  de carregar, o comportamento online e offline é o mesmo.
+
 ## Saídas
 
 - Interface interativa (visão geral, fluxos, hosts, DNS, TLS, HTTP, alertas,
@@ -157,11 +260,17 @@ releases (Windows, Linux, macOS).
 
 | Fase | Entrega |
 |---|---|
-| 0 | Esqueleto: repositório, CI, Pages no ar, identidade visual |
-| 1 | MVP: pcap e pcapng, fluxos, hosts, DNS, HTTP, TLS, visão geral e linha do tempo |
-| 2 | Analisadores, alertas com ATT&CK, exportação JSON, CSV e STIX |
-| 3 | Protocolos de rede corporativa (SMB, Kerberos, LDAP), extração de arquivos, CLI |
-| 4 | Opcional: serviço no VPS que recebe só dados derivados (IOCs, resumo), nunca o pcap |
+| 0 | Esqueleto: repositório, CI, Pages no ar, identidade visual, três idiomas (feito) |
+| 1 | Núcleo: pcap e pcapng, fluxos, hosts, DNS, HTTP, TLS, visão geral e linha do tempo, **offline (PWA)** |
+| 2 | Analisadores com ATT&CK e **história da captura** |
+| 3 | **Anonimizador** e exportação JSON, CSV e STIX |
+| 4 | Protocolos de rede corporativa (SMB, Kerberos, LDAP), extração de arquivos, CLI |
+| 5 | Replay da rede, diff de capturas, regras da comunidade |
+| 6 | Experimental: perguntas em linguagem natural com IA rodando no navegador |
+| 7 | Opcional: serviço no VPS que recebe só dados derivados (IOCs, resumo), nunca o pcap |
+
+O offline entra já na fase 1 porque é barato e define como os arquivos do site
+são organizados desde o começo.
 
 ## Idiomas
 
