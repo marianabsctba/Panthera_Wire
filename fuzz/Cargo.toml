@@ -1,0 +1,38 @@
+[package]
+name = "panthera-wire-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+license = "GPL-2.0-or-later"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+panthera-wire-nucleo = { path = "../nucleo" }
+
+# Fora do workspace principal: precisa do Rust nightly e só roda no Linux (CI).
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "captura"
+path = "fuzz_targets/captura.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "pacote"
+path = "fuzz_targets/pacote.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "anonimizador"
+path = "fuzz_targets/anonimizador.rs"
+test = false
+doc = false
+bench = false

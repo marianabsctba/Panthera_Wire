@@ -9,3 +9,8 @@ target/
 !amostras/*.pcapng
 web/src/nucleo-gerado/
 .claude/
+fuzz/target/
+fuzz/artifacts/
+fuzz/corpus/
+corpus/
+!fuzz/semente/*

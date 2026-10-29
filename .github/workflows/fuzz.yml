@@ -1,0 +1,38 @@
+name: Fuzzing
+
+# Toda semana e a cada mudança no núcleo. Cada alvo roda por alguns minutos;
+# uma falha deixa o caso que quebrou como artefato para virar teste.
+on:
+  push:
+    branches: [main]
+    paths: ["nucleo/**", "fuzz/**", ".github/workflows/fuzz.yml"]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        alvo: [captura, pacote, anonimizador]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - name: Rodar ${{ matrix.alvo }}
+        run: |
+          mkdir -p corpus/${{ matrix.alvo }}
+          cp fuzz/semente/* corpus/${{ matrix.alvo }}/
+          cargo fuzz run ${{ matrix.alvo }} corpus/${{ matrix.alvo }} -- -max_total_time=180 -max_len=262144 -rss_limit_mb=2048
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: falha-${{ matrix.alvo }}
+          path: fuzz/artifacts/

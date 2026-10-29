@@ -262,3 +262,50 @@ fn anonimizar_bytes_corrompidos_nao_derruba() {
         let _ = a.finalizar();
     }
 }
+
+/// Versão local do fuzzing (o de verdade roda no CI, no Linux): milhares de
+/// pacotes aleatórios em todos os tipos de enlace, pela análise e pelo
+/// anonimizador. Nada pode entrar em pânico e a saída anonimizada precisa ser
+/// legível.
+#[test]
+fn pacotes_aleatorios_nao_derrubam() {
+    let mut x = 0x9e37_79b9_7f4a_7c15u64;
+    let mut proximo = || {
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        x
+    };
+    // Cabeçalhos plausíveis para o aleatório chegar longe: Ethernet+IPv4+UDP/TCP.
+    let bases: [&[u8]; 3] = [
+        &[0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 2, 8, 0, 0x45, 0, 0, 60, 0, 0, 0, 0, 64, 17, 0, 0, 10, 0, 0, 1, 10, 0, 0, 2, 0, 53, 0, 53, 0, 40, 0, 0],
+        &[0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 2, 8, 0, 0x45, 0, 0, 80, 0, 0, 0, 0, 64, 6, 0, 0, 10, 0, 0, 1, 8, 8, 8, 8, 0x30, 0x39, 1, 187, 0, 0, 0, 1, 0, 0, 0, 0, 0x50, 0x18, 0xff, 0xff, 0, 0, 0, 0, 0x16, 3, 1, 0, 60, 1, 0, 0, 56, 3, 3],
+        &[0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 2, 8, 0, 0x45, 0, 1, 64, 0, 0, 0, 0, 64, 17, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 68, 0, 67, 1, 44, 0, 0, 1, 1, 6, 0],
+    ];
+    for i in 0..3000 {
+        let mut pacote = bases[i % bases.len()].to_vec();
+        let extra = (proximo() % 300) as usize;
+        pacote.extend((0..extra).map(|_| proximo() as u8));
+        // Estraga alguns bytes do cabeçalho também.
+        for _ in 0..(proximo() % 4) {
+            let p = (proximo() as usize) % pacote.len();
+            pacote[p] = proximo() as u8;
+        }
+        let enlace = [1u32, 113, 276, 0, 101, 228][i % 6];
+        let mut v = vec![0xd4, 0xc3, 0xb2, 0xa1, 2, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        v.extend_from_slice(&65535u32.to_le_bytes());
+        v.extend_from_slice(&enlace.to_le_bytes());
+        v.extend_from_slice(&[0; 8]);
+        v.extend_from_slice(&(pacote.len() as u32).to_le_bytes());
+        v.extend_from_slice(&(pacote.len() as u32).to_le_bytes());
+        v.extend_from_slice(&pacote);
+
+        let mut a = Analise::new();
+        let _ = a.alimentar(&v);
+        let _ = a.finalizar();
+
+        let (saida, _) = anonimizar(&v, opcoes(if i % 2 == 0 { Conteudo::Protocolos } else { Conteudo::Cabecalhos }));
+        let mut b = Analise::new();
+        assert!(b.alimentar(&saida).is_ok(), "pacote {i}: anonimizado ilegível");
+    }
+}
