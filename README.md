@@ -12,6 +12,13 @@ que merece atenção.
 
 - **A captura vira uma história:** o que aconteceu, em que ordem e com que
   confiança, com cada frase ligada à evidência.
+- **Perguntas para investigar:** hipóteses que a própria captura responde (o
+  que o host fez antes do primeiro alerta, se outros hosts falaram com o mesmo
+  destino, se a força bruta deu certo), cada uma com o atalho para os pacotes.
+- **Comparar com uma captura normal** da mesma rede e ver só o que é novo no
+  incidente: destinos, domínios, SNI, JA4, user agents, serviços e alertas.
+- **Replay da rede:** as conexões acendem no tempo da captura, com os alertas
+  marcados na régua.
 - **Anonimizador** para compartilhar capturas com a comunidade sem expor
   pessoas, credenciais ou a rede de origem: endereços trocados preservando a
   rede, nomes internos mascarados, conteúdo cortado e um relatório do que

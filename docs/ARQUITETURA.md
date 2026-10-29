@@ -378,7 +378,7 @@ releases (Windows, Linux, macOS).
 | 2 | Analisadores com ATT&CK e **história da captura**, cobertura completa ATT&CK e D3FEND (feito) |
 | 3 | **Anonimizador** e exportação JSON, CSV e STIX (feito) |
 | 4 | Detalhe pacote a pacote com o Wireshark (Wiregasm), protocolos de rede corporativa (SMB, Kerberos, LDAP), extração de arquivos, CLI |
-| 5 | Replay da rede, diff de capturas, regras da comunidade |
+| 5 | Replay da rede, diff de capturas e hipóteses guiadas (feito) |
 | 6 | Experimental: perguntas em linguagem natural com IA rodando no navegador |
 | 7 | Opcional: serviço no VPS que recebe só dados derivados (IOCs, resumo), nunca o pcap |
 
@@ -444,6 +444,45 @@ leitura para assim que tem o bastante, então os primeiros pacotes de um arquivo
 de GB aparecem rápido. Os nomes dos campos seguem a convenção do Wireshark. O
 valor de `Authorization` e `Cookie` não aparece decodificado (está nos bytes).
 A dissecação profunda de milhares de protocolos fica para o Wiregasm.
+
+### Hipóteses guiadas
+
+Na história, uma lista de perguntas geradas a partir dos alertas, respondidas
+só com os dados do relatório (`web/src/hipoteses.ts`), até oito, das mais graves
+para as mais leves:
+
+| Pergunta | De onde vem a resposta |
+|---|---|
+| O que o paciente zero fez antes do primeiro alerta? | fluxos dele iniciados antes do alerta mais antigo |
+| Depois do download, falou com destinos novos? | destinos externos que só aparecem depois do download |
+| Outros hosts falaram com o mesmo destino ou consultaram o mesmo domínio? | fluxos e consultas DNS de outros clientes |
+| A força bruta teve sucesso? | parâmetro `sucesso` da regra (resposta 2xx no mesmo caminho depois das falhas) |
+| Alguma porta varrida respondeu? | fluxos da varredura que abriram ou encerraram normalmente |
+| Quanto o host mandou para fora? | soma dos bytes de ida para destinos externos |
+
+Cada resposta diz sim ou não (menos as de medida) e traz o atalho para os
+pacotes filtrados.
+
+### Diff de capturas
+
+A página **Comparar** lê uma segunda captura, de referência (um período normal
+da mesma rede), no mesmo worker de leitura, e mostra só o que existe no
+incidente e não na referência (`web/src/diferencas.ts`): alertas (mesma regra,
+host e alvo), hosts internos, destinos externos, domínios consultados, SNI,
+JA4, user agents e serviços (protocolo e porta de conexões que tiveram
+resposta; sem resposta é varredura, que já tem regra). Cinco subdomínios novos
+ou mais sob o mesmo pai viram uma linha `*.pai`, para um túnel DNS não encher a
+lista. A comparação usa as listas do relatório; se alguma passou do limite de
+saída, a página avisa.
+
+### Replay da rede
+
+A página **Replay** toca a captura em 30 segundos na velocidade 1× (de 0,25× a
+4×): quem inicia à esquerda (até 10, hosts com alerta primeiro), quem recebe à
+direita (até 14, alvos de alerta primeiro), e cada par acende enquanto tem
+conexão aberta, com espessura pelo volume e rosa quando a conexão é evidência
+de alerta. Conexões curtas ficam acesas por 1,5% da duração, para dar para ver.
+A régua marca os alertas por severidade, e um clique vai até eles.
 
 ### Confiança da história
 

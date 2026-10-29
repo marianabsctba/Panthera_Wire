@@ -9,6 +9,7 @@ import {
 } from "./mitre";
 import type { Contexto } from "./paginas";
 import type { Alerta, Relatorio } from "./tipos";
+import { hipoteses } from "./hipoteses";
 
 function useTi() {
   const { idioma } = useTextos();
@@ -257,7 +258,7 @@ function RegrasQuietas({ r, nomes }: { r: Relatorio; nomes: Map<string, string> 
 
 // ---------- página: história ----------
 
-export function Historia({ r, nomes }: Contexto) {
+export function Historia({ r, nomes, verPacotes }: Contexto) {
   const ti = useTi();
   const { idioma } = useTextos();
   const h = r.historia;
@@ -349,6 +350,8 @@ export function Historia({ r, nomes }: Contexto) {
 
       {soltos > 0 && h.cadeias.length > 0 && <div className="fraco">{ti.historia.alertasSoltos(soltos)}</div>}
 
+      <Hipoteses r={r} nomes={nomes} verPacotes={verPacotes} />
+
       <HistoriaFactual r={r} nomes={nomes} />
 
       <div className="bloco">
@@ -358,6 +361,35 @@ export function Historia({ r, nomes }: Contexto) {
         </ul>
       </div>
     </>
+  );
+}
+
+function Hipoteses({ r, nomes, verPacotes }: Pick<Contexto, "r" | "nomes" | "verPacotes">) {
+  const ti = useTi();
+  const { t } = useTextos();
+  const lista = useMemo(() => hipoteses(r, nomes, ti), [r, nomes, ti]);
+  if (lista.length === 0) return null;
+  return (
+    <div className="bloco">
+      <h2>{ti.hipoteses.titulo}</h2>
+      <div className="suave">{ti.hipoteses.subtitulo}</div>
+      <ul className="hipoteses">
+        {lista.map((x) => (
+          <li key={x.chave}>
+            <div className="hipotese-pergunta">{x.pergunta}</div>
+            <div className="hipotese-resposta">
+              {x.achou !== undefined && (
+                <span className={`selo ${x.achou ? "suspeita" : ""}`}>{x.achou ? ti.hipoteses.sim : ti.hipoteses.nao}</span>
+              )}
+              <span>{x.resposta}</span>
+              {x.filtro && (
+                <button className="link" onClick={() => verPacotes(x.filtro!)}>{t.pacotes.ver}</button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

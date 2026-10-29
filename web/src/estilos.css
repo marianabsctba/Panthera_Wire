@@ -230,6 +230,44 @@ button.link:hover { text-decoration: underline; }
 .celula .subs .marca-status { width: 6px; height: 6px; }
 .detalhe-tecnica { display: flex; flex-direction: column; gap: 8px; border-color: var(--borda-forte); }
 
+/* Replay */
+.replay { display: flex; flex-direction: column; gap: 12px; }
+.replay-controles { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.replay-controles button { display: inline-flex; align-items: center; gap: 6px; }
+.replay-velocidade { display: inline-flex; align-items: center; gap: 6px; color: var(--texto-2); font-size: 13px; }
+.replay-velocidade select { padding: 3px 6px; }
+.replay-relogio { color: var(--texto); }
+.replay-regua { position: relative; padding-bottom: 14px; }
+.replay-regua input[type="range"] { width: 100%; accent-color: var(--rosa); padding: 0; border: 0; background: none; }
+.replay-marcas { position: absolute; left: 8px; right: 8px; bottom: 0; height: 12px; }
+.replay-marca { position: absolute; width: 4px; height: 12px; margin-left: -2px; padding: 0; border: 0; border-radius: 2px; background: var(--texto-3); cursor: pointer; }
+.replay-marca.sev-alta { background: var(--erro); }
+.replay-marca.sev-media { background: var(--aviso); }
+.replay-marca:hover { transform: scaleY(1.3); }
+.replay-grafo { width: 100%; min-width: 700px; display: block; }
+.replay-coluna { fill: var(--texto-3); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.replay-aresta { fill: none; stroke: var(--borda); transition: stroke .15s, stroke-width .15s; }
+.replay-aresta.acesa { stroke: var(--texto-2); }
+.replay-aresta.alerta { stroke: var(--rosa-fundo); }
+.replay-aresta.alerta.acesa { stroke: var(--rosa); }
+.replay-no circle { fill: var(--painel-2); stroke: var(--borda-forte); stroke-width: 2; transition: fill .15s; }
+.replay-no text { fill: var(--texto-2); font-size: 12px; font-family: var(--mono); }
+.replay-no.aceso circle { fill: var(--texto-2); stroke: var(--texto); }
+.replay-no.alerta circle { stroke: var(--rosa); }
+.replay-no.aceso.alerta circle { fill: var(--rosa); }
+.replay-no.aceso text { fill: var(--texto); }
+.marca-linha { display: inline-block; width: 18px; height: 3px; border-radius: 2px; background: var(--texto-2); vertical-align: 3px; }
+.marca-linha.alerta { background: var(--rosa); }
+
+/* Comparação */
+.novidades button.link { margin-left: 8px; padding: 0; }
+
+/* Hipóteses */
+.hipoteses { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.hipotese-pergunta { font-weight: 500; }
+.hipotese-resposta { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 3px; color: var(--texto-2); }
+.hipotese-resposta .selo { min-width: 38px; justify-content: center; }
+
 /* Regras que não dispararam */
 .regras-quietas { margin-top: 8px; font-size: 13px; }
 .regras-quietas td { padding: 8px 10px; }

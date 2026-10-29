@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import {
-  Activity, AlertTriangle, BookOpen, Clock, Download, FileUp, Globe, Languages, LayoutDashboard, LayoutGrid, Lock,
+  Activity, AlertTriangle, BookOpen, Clock, Download, FileUp, GitCompare, Globe, Languages, LayoutDashboard, LayoutGrid, Lock, Play,
   List, Network, Server, ShieldCheck, X,
 } from "lucide-react";
 import { ContextoIdioma, IDIOMAS, TEXTOS, idiomaInicial, salvarIdioma, type Idioma, type Textos } from "./idiomas";
@@ -9,6 +9,8 @@ import { Dns, Fluxos, Hosts, Http, LinhaDoTempo, Tls, VisaoGeral, type Contexto 
 import { Alertas, Cobertura, Historia } from "./inteligencia";
 import { Exportar } from "./exportar";
 import { Pacotes } from "./pacotes";
+import { Comparar } from "./comparar";
+import { Replay } from "./replay";
 import type { MensagemLeitura, Relatorio } from "./tipos";
 import AvisoAtualizacao from "./AvisoAtualizacao";
 
@@ -28,6 +30,8 @@ const MENU: { chave: Pagina; icone: typeof Activity; pronta: boolean }[] = [
   { chave: "dns", icone: Globe, pronta: true },
   { chave: "tls", icone: Lock, pronta: true },
   { chave: "http", icone: Network, pronta: true },
+  { chave: "replay", icone: Play, pronta: true },
+  { chave: "comparar", icone: GitCompare, pronta: true },
   { chave: "exportar", icone: Download, pronta: true },
   { chave: "cobertura", icone: LayoutGrid, pronta: true },
 ];
@@ -45,6 +49,8 @@ const PAGINAS: Partial<Record<Pagina, (c: Contexto) => JSX.Element>> = {
   dns: Dns,
   tls: Tls,
   http: Http,
+  replay: Replay,
+  comparar: Comparar,
   exportar: Exportar,
 };
 
