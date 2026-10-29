@@ -170,6 +170,20 @@ def carregar_d3fend(caminho):
         if encontradas:
             mapeamento[att] = sorted(encontradas)
 
+    # Categoria de cada contramedida: a defesa-mãe mais alta da hierarquia
+    # (ex.: D3-PHDURA fica em D3-NTA, Network Traffic Analysis). Quem não tem
+    # mãe é a própria categoria.
+    id_da_classe = {v["classe"]: d for d, v in defesas.items()}
+    for d, v in defesas.items():
+        maes = [id_da_classe[a.replace("d3f:", "")] for a in ancestrais("d3f:" + v["classe"])
+                if a.replace("d3f:", "") in id_da_classe and a != "d3f:" + v["classe"]]
+        maes = [m for m in maes if m.startswith("D3-")]
+        # A mais alta é a que não tem nenhuma outra mãe acima dela na lista.
+        topo = [m for m in maes
+                if not any(id_da_classe.get(a.replace("d3f:", "")) in maes
+                           for a in ancestrais("d3f:" + defesas[m]["classe"]) if a != "d3f:" + defesas[m]["classe"])]
+        v["grupo"] = sorted(topo)[0] if topo else d
+
     # Todas as contramedidas (D3-*) vão para o site; os algoritmos de apoio
     # (D3A-*) ficam de fora porque não são técnicas defensivas.
     return versao, {d: v for d, v in sorted(defesas.items()) if d.startswith("D3-")}, mapeamento

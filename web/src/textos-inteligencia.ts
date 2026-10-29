@@ -97,6 +97,8 @@ const pt = {
     d3fendResumo: (impl: number, total: number) =>
       `O Panthera Wire implementa ${impl} das ${total} contramedidas do D3FEND, todas de detecção por análise de tráfego. As demais dependem de outras camadas (endpoint, identidade, rede ativa) e aparecem como recomendação em cada alerta.`,
     implementada: "Implementada pelo Panthera Wire",
+    soAplicadas: "Mostrar só as que o Panthera Wire aplica",
+    aplicadas: (n: number) => `${n} ${n === 1 ? "aplicada" : "aplicadas"}`,
     versoes: (a: string, d: string) => `ATT&CK ${a} · D3FEND ${d}`,
   },
   regras: {
@@ -255,6 +257,8 @@ const en: TextosInteligencia = {
     d3fendResumo: (impl, total) =>
       `Panthera Wire implements ${impl} of the ${total} D3FEND countermeasures, all of them detection through traffic analysis. The others depend on other layers (endpoint, identity, active network) and show up as recommendations on each alert.`,
     implementada: "Implemented by Panthera Wire",
+    soAplicadas: "Show only the ones Panthera Wire applies",
+    aplicadas: (n) => `${n} applied`,
     versoes: (a, d) => `ATT&CK ${a} · D3FEND ${d}`,
   },
   regras: {
@@ -411,6 +415,8 @@ const es: TextosInteligencia = {
     d3fendResumo: (impl, total) =>
       `Panthera Wire implementa ${impl} de las ${total} contramedidas de D3FEND, todas de detección por análisis de tráfico. Las demás dependen de otras capas (endpoint, identidad, red activa) y aparecen como recomendación en cada alerta.`,
     implementada: "Implementada por Panthera Wire",
+    soAplicadas: "Mostrar solo las que aplica Panthera Wire",
+    aplicadas: (n) => `${n} ${n === 1 ? "aplicada" : "aplicadas"}`,
     versoes: (a, d) => `ATT&CK ${a} · D3FEND ${d}`,
   },
   regras: {

@@ -318,7 +318,6 @@ export function Cobertura() {
     return casa && st;
   };
 
-  const porDefesa = ORDEM_D3FEND.map((tat) => [tat, Object.entries(MITRE.defesas).filter(([, d]) => d.tatica === tat)] as const);
   const totalDefesas = Object.keys(MITRE.defesas).length;
 
   return (
@@ -370,15 +369,80 @@ export function Cobertura() {
       <div className="bloco">
         <h2>{ti.cobertura.d3fendTitulo}</h2>
         <p className="suave">{ti.cobertura.d3fendResumo(D3FEND_IMPLEMENTADAS.size, totalDefesas)}</p>
-        {porDefesa.map(([tat, ds]) => (
-          <div key={tat} className="linha-defesas">
-            <span className="tatica-defesa">{ti.d3fendTaticas[tat] ?? tat} <span className="fraco">{ds.length}</span></span>
-            {ds.map(([id]) => <ChipDefesa key={id} id={id} implementada={D3FEND_IMPLEMENTADAS.has(id)} />)}
-          </div>
-        ))}
+        <MatrizD3fend />
       </div>
 
       <div className="fraco atribuicao">{MITRE.atribuicao}</div>
+    </>
+  );
+}
+
+/**
+ * Matriz do D3FEND como no site oficial: uma coluna por tática defensiva, as
+ * contramedidas agrupadas pela categoria-mãe, e as que o Panthera Wire aplica
+ * em destaque.
+ */
+function MatrizD3fend() {
+  const ti = useTi();
+  const [soAplicadas, setSoAplicadas] = useState(false);
+
+  const colunas = useMemo(() => ORDEM_D3FEND.map((tatica) => {
+    const daTatica = Object.entries(MITRE.defesas).filter(([, d]) => d.tatica === tatica);
+    const grupos = new Map<string, string[]>();
+    for (const [id, d] of daTatica) {
+      if (id !== d.grupo) grupos.set(d.grupo, [...(grupos.get(d.grupo) ?? []), id]);
+      else if (!grupos.has(id)) grupos.set(id, []);
+    }
+    const ordenados = [...grupos.entries()]
+      .map(([grupo, ids]) => ({ grupo, ids: ids.sort((a, b) => MITRE.defesas[a].nome.localeCompare(MITRE.defesas[b].nome)) }))
+      .sort((a, b) => MITRE.defesas[a.grupo].nome.localeCompare(MITRE.defesas[b.grupo].nome));
+    return { tatica, total: daTatica.length, aplicadas: daTatica.filter(([id]) => D3FEND_IMPLEMENTADAS.has(id)).length, grupos: ordenados };
+  }), []);
+
+  return (
+    <>
+      <label className="marcar" style={{ margin: "4px 0 10px" }}>
+        <input type="checkbox" checked={soAplicadas} onChange={(e) => setSoAplicadas(e.target.checked)} />
+        {ti.cobertura.soAplicadas}
+      </label>
+      <div className="rolagem matriz matriz-d3">
+        {colunas.map(({ tatica, total, aplicadas, grupos }) => (
+          <div key={tatica} className="coluna-tatica">
+            <div className="cabeca-tatica cabeca-d3">
+              <span>{ti.d3fendTaticas[tatica] ?? tatica}</span>
+              <span className="fraco">{total}</span>
+              {aplicadas > 0 && <span className="selo suspeita">{ti.cobertura.aplicadas(aplicadas)}</span>}
+            </div>
+            {grupos.map(({ grupo, ids }) => {
+              const visiveis = soAplicadas ? ids.filter((id) => D3FEND_IMPLEMENTADAS.has(id)) : ids;
+              const categoriaAplicada = D3FEND_IMPLEMENTADAS.has(grupo);
+              if (soAplicadas && visiveis.length === 0 && !categoriaAplicada) return null;
+              const temAplicada = categoriaAplicada || ids.some((id) => D3FEND_IMPLEMENTADAS.has(id));
+              return (
+                <div key={grupo} className={`grupo-d3 ${temAplicada ? "com-aplicada" : ""}`}>
+                  <a className={`titulo-grupo-d3 ${categoriaAplicada ? "aplicada" : ""}`} href={urlDefesa(grupo)} target="_blank" rel="noreferrer noopener">
+                    {categoriaAplicada && <ShieldCheck size={12} />}
+                    <span>{MITRE.defesas[grupo].nome}</span>
+                    <span className="mono fraco">{grupo}</span>
+                  </a>
+                  {visiveis.map((id) => {
+                    const aplicada = D3FEND_IMPLEMENTADAS.has(id);
+                    return (
+                      <a key={id} className={`item-d3 ${aplicada ? "aplicada" : ""}`} href={urlDefesa(id)} target="_blank" rel="noreferrer noopener" title={`${id} ${MITRE.defesas[id].nome}`}>
+                        {aplicada && <ShieldCheck size={11} />}
+                        <span>{MITRE.defesas[id].nome}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div className="legenda">
+        <span><i style={{ background: "var(--rosa)" }} /> {ti.cobertura.implementada}</span>
+      </div>
     </>
   );
 }

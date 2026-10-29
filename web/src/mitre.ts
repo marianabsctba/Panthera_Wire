@@ -25,6 +25,8 @@ export interface Defesa {
   nome: string;
   tatica: string | null;
   classe: string;
+  /** Categoria-mãe (ou a própria, quando é uma categoria). */
+  grupo: string;
 }
 
 export interface RegraNucleo {
