@@ -225,6 +225,28 @@ button.link:hover { text-decoration: underline; }
 .celula .subs .marca-status { width: 6px; height: 6px; }
 .detalhe-tecnica { display: flex; flex-direction: column; gap: 8px; border-color: var(--borda-forte); }
 
+/* Exportar */
+.formulario-anon { display: flex; flex-direction: column; gap: 12px; }
+.formulario-anon > input { max-width: 420px; }
+.opcoes { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.opcoes legend { color: var(--texto-2); margin-bottom: 8px; padding: 0; }
+.opcao {
+  display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
+  border: 1px solid var(--borda); border-radius: var(--raio); padding: 10px 12px;
+}
+.opcao:hover { border-color: var(--borda-forte); }
+.opcao.marcada { border-color: var(--rosa); background: var(--rosa-fundo); }
+.opcao input { flex: none; width: 16px; height: 16px; margin: 3px 0 0; accent-color: var(--rosa); }
+.opcao > span { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.campo { display: flex; flex-direction: column; gap: 4px; max-width: 520px; font-size: 13px; }
+.resultado-anon { display: flex; flex-direction: column; gap: 4px; }
+.resultado-anon h3 { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.resultado-anon h3 svg { color: var(--aviso); }
+.acoes-linha { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.exportacoes .cartao-botao { display: flex; flex-direction: column; gap: 6px; }
+.exportacoes .rotulo { display: flex; align-items: center; gap: 6px; color: var(--texto); font-size: 14px; }
+.exportacoes .rotulo svg { color: var(--rosa); }
+
 /* Matriz D3FEND: colunas por tática, cartões por categoria. */
 .matriz-d3 { grid-auto-columns: minmax(190px, 1fr); }
 .cabeca-d3 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }

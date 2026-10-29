@@ -172,6 +172,34 @@ export interface ErroCaptura {
   offset: number;
 }
 
+/** Espelho de `Opcoes` em nucleo/src/anonimizador.rs. */
+export interface OpcoesAnonimizacao {
+  chave: string;
+  enderecos: "internos" | "todos" | "nenhum";
+  conteudo: "cabecalhos" | "protocolos";
+  manter_fabricante: boolean;
+  deslocar_horarios: boolean;
+  nomes_internos: string[];
+  dominios_internos: string[];
+}
+
+export interface RelatorioAnonimizacao {
+  pacotes: number;
+  pacotes_removidos: number;
+  pacotes_cortados: number;
+  bytes_removidos: number;
+  enderecos_trocados: number;
+  macs_trocados: number;
+  nomes_mascarados: number;
+  riscos: string[];
+  erro: ErroCaptura | null;
+}
+
+export type MensagemAnonimizacao =
+  | { tipo: "progresso"; lidos: number; total: number }
+  | { tipo: "concluido"; arquivo: Blob; relatorio: RelatorioAnonimizacao; tabela: string; erro: ErroCaptura | null }
+  | { tipo: "falha"; mensagem: string };
+
 /** Mensagens que o worker de leitura manda para a interface. */
 export type MensagemLeitura =
   | { tipo: "progresso"; lidos: number; total: number; pacotes: number; fluxos: number }

@@ -12,6 +12,8 @@ export interface Contexto {
   /** Primeiro nome conhecido de cada IP (DNS, SNI, HTTP, DHCP). */
   nomes: Map<string, string>;
   segundos: number;
+  /** A captura original, para reler (anonimizar). */
+  arquivo: File;
 }
 
 // ---------- peças comuns ----------

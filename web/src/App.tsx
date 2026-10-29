@@ -7,6 +7,7 @@ import { ContextoIdioma, IDIOMAS, TEXTOS, idiomaInicial, salvarIdioma, type Idio
 import { numero, tamanho } from "./formatos";
 import { Dns, Fluxos, Hosts, Http, LinhaDoTempo, Tls, VisaoGeral, type Contexto } from "./paginas";
 import { Alertas, Cobertura, Historia } from "./inteligencia";
+import { Exportar } from "./exportar";
 import type { MensagemLeitura, Relatorio } from "./tipos";
 import AvisoAtualizacao from "./AvisoAtualizacao";
 
@@ -25,7 +26,7 @@ const MENU: { chave: Pagina; icone: typeof Activity; pronta: boolean }[] = [
   { chave: "dns", icone: Globe, pronta: true },
   { chave: "tls", icone: Lock, pronta: true },
   { chave: "http", icone: Network, pronta: true },
-  { chave: "exportar", icone: Download, pronta: false },
+  { chave: "exportar", icone: Download, pronta: true },
   { chave: "cobertura", icone: LayoutGrid, pronta: true },
 ];
 
@@ -42,6 +43,7 @@ const PAGINAS: Partial<Record<Pagina, (c: Contexto) => JSX.Element>> = {
   dns: Dns,
   tls: Tls,
   http: Http,
+  exportar: Exportar,
 };
 
 type Estado =
@@ -193,7 +195,7 @@ export default function App() {
                     <button onClick={() => setPagina("abrir")}><FileUp size={15} /> {t.abrirOutra}</button>
                   </div>
                 </div>
-                <Pagina r={estado.relatorio} nomes={nomes} segundos={estado.segundos} />
+                <Pagina r={estado.relatorio} nomes={nomes} segundos={estado.segundos} arquivo={estado.arquivo} />
               </>
             )}
 
