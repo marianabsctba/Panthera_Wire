@@ -19,6 +19,7 @@ const pt = {
     atualizar: "Atualizar agora",
   },
   menu: {
+    historia: "História",
     visaoGeral: "Visão geral",
     alertas: "Alertas",
     linhaDoTempo: "Linha do tempo",
@@ -28,6 +29,7 @@ const pt = {
     tls: "TLS",
     http: "HTTP",
     exportar: "Exportar",
+    cobertura: "Cobertura MITRE",
   },
 
   abrirCaptura: "Abrir captura",
@@ -147,6 +149,7 @@ const en: Textos = {
     atualizar: "Update now",
   },
   menu: {
+    historia: "Story",
     visaoGeral: "Overview",
     alertas: "Alerts",
     linhaDoTempo: "Timeline",
@@ -156,6 +159,7 @@ const en: Textos = {
     tls: "TLS",
     http: "HTTP",
     exportar: "Export",
+    cobertura: "MITRE coverage",
   },
 
   abrirCaptura: "Open capture",
@@ -272,6 +276,7 @@ const es: Textos = {
     atualizar: "Actualizar ahora",
   },
   menu: {
+    historia: "Historia",
     visaoGeral: "Resumen",
     alertas: "Alertas",
     linhaDoTempo: "Línea de tiempo",
@@ -281,6 +286,7 @@ const es: Textos = {
     tls: "TLS",
     http: "HTTP",
     exportar: "Exportar",
+    cobertura: "Cobertura MITRE",
   },
 
   abrirCaptura: "Abrir captura",

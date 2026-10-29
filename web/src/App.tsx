@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import {
-  Activity, AlertTriangle, Clock, Download, FileUp, Globe, Languages, LayoutDashboard, Lock, Network, Server,
-  ShieldCheck, X,
+  Activity, AlertTriangle, BookOpen, Clock, Download, FileUp, Globe, Languages, LayoutDashboard, LayoutGrid, Lock,
+  Network, Server, ShieldCheck, X,
 } from "lucide-react";
 import { ContextoIdioma, IDIOMAS, TEXTOS, idiomaInicial, salvarIdioma, type Idioma, type Textos } from "./idiomas";
 import { numero, tamanho } from "./formatos";
 import { Dns, Fluxos, Hosts, Http, LinhaDoTempo, Tls, VisaoGeral, type Contexto } from "./paginas";
+import { Alertas, Cobertura, Historia } from "./inteligencia";
 import type { MensagemLeitura, Relatorio } from "./tipos";
 import AvisoAtualizacao from "./AvisoAtualizacao";
 
@@ -14,8 +15,9 @@ const LOGO = `${import.meta.env.BASE_URL}pantera.webp`;
 type Pagina = keyof Textos["menu"];
 
 const MENU: { chave: Pagina; icone: typeof Activity; pronta: boolean }[] = [
+  { chave: "historia", icone: BookOpen, pronta: true },
   { chave: "visaoGeral", icone: LayoutDashboard, pronta: true },
-  { chave: "alertas", icone: AlertTriangle, pronta: false },
+  { chave: "alertas", icone: AlertTriangle, pronta: true },
   { chave: "linhaDoTempo", icone: Clock, pronta: true },
   { chave: "fluxos", icone: Activity, pronta: true },
   { chave: "hosts", icone: Server, pronta: true },
@@ -23,10 +25,16 @@ const MENU: { chave: Pagina; icone: typeof Activity; pronta: boolean }[] = [
   { chave: "tls", icone: Lock, pronta: true },
   { chave: "http", icone: Network, pronta: true },
   { chave: "exportar", icone: Download, pronta: false },
+  { chave: "cobertura", icone: LayoutGrid, pronta: true },
 ];
 
+/** Páginas que não dependem de uma captura aberta. */
+const SEM_CAPTURA: Pagina[] = ["cobertura"];
+
 const PAGINAS: Partial<Record<Pagina, (c: Contexto) => JSX.Element>> = {
+  historia: Historia,
   visaoGeral: VisaoGeral,
+  alertas: Alertas,
   linhaDoTempo: LinhaDoTempo,
   fluxos: Fluxos,
   hosts: Hosts,
@@ -44,15 +52,21 @@ type Estado =
 export default function App() {
   const [idioma, setIdioma] = useState<Idioma>(idiomaInicial);
   const [estado, setEstado] = useState<Estado>({ fase: "inicio" });
-  const [pagina, setPagina] = useState<Pagina>("visaoGeral");
+  const [pagina, setPagina] = useState<Pagina>("historia");
   const [arrastando, setArrastando] = useState(false);
   const seletor = useRef<HTMLInputElement>(null);
   const worker = useRef<Worker | null>(null);
   const conteudo = useRef<HTMLElement>(null);
   const t = TEXTOS[idioma];
 
-  useEffect(() => salvarIdioma(idioma), [idioma]);
-  useEffect(() => conteudo.current?.scrollTo(0, 0), [pagina]);
+  useEffect(() => {
+    salvarIdioma(idioma);
+  }, [idioma]);
+  // Sem retorno: em navegadores novos scrollTo devolve uma Promise, e o
+  // React trataria isso como função de limpeza.
+  useEffect(() => {
+    conteudo.current?.scrollTo(0, 0);
+  }, [pagina]);
 
   function encerrarLeitura() {
     worker.current?.terminate();
@@ -61,7 +75,7 @@ export default function App() {
 
   function abrir(arquivo: File) {
     encerrarLeitura();
-    setPagina("visaoGeral");
+    setPagina("historia");
     setEstado({ fase: "lendo", arquivo, lidos: 0, pacotes: 0 });
     const w = new Worker(new URL("./leitura.worker.ts", import.meta.url), { type: "module" });
     worker.current = w;
@@ -95,6 +109,7 @@ export default function App() {
   function reiniciar() {
     encerrarLeitura();
     setEstado({ fase: "inicio" });
+    setPagina("historia");
   }
 
   const nomes = useMemo(() => {
@@ -138,8 +153,9 @@ export default function App() {
         <div className="corpo">
           <nav className="menu">
             {MENU.map(({ chave, icone: Icone, pronta }) => {
-              const ativa = pronto && pagina === chave;
-              const disponivel = pronto && pronta;
+              const avulsa = SEM_CAPTURA.includes(chave);
+              const ativa = (pronto || avulsa) && pagina === chave;
+              const disponivel = pronta && (pronto || avulsa);
               return (
                 <a
                   key={chave}
@@ -154,7 +170,21 @@ export default function App() {
           </nav>
 
           <main className="conteudo" ref={conteudo}>
-            {estado.fase === "pronto" && Pagina && (
+            {SEM_CAPTURA.includes(pagina) && (
+              <>
+                <div className="cabecalho">
+                  <h1>{t.menu[pagina]}</h1>
+                  {estado.fase !== "inicio" && (
+                    <div className="acoes">
+                      <button onClick={() => setPagina("historia")}><BookOpen size={15} /> {t.menu.historia}</button>
+                    </div>
+                  )}
+                </div>
+                <Cobertura />
+              </>
+            )}
+
+            {!SEM_CAPTURA.includes(pagina) && estado.fase === "pronto" && Pagina && (
               <>
                 <div className="cabecalho">
                   <h1>{t.menu[pagina]}</h1>
@@ -166,7 +196,7 @@ export default function App() {
               </>
             )}
 
-            {estado.fase === "lendo" && (
+            {!SEM_CAPTURA.includes(pagina) && estado.fase === "lendo" && (
               <div className="bloco leitura">
                 <h2>{t.lendo}</h2>
                 <div className="progresso">
@@ -181,7 +211,7 @@ export default function App() {
               </div>
             )}
 
-            {(estado.fase === "inicio" || estado.fase === "falha") && (
+            {!SEM_CAPTURA.includes(pagina) && (estado.fase === "inicio" || estado.fase === "falha") && (
               <>
                 <div className="cabecalho">
                   <div>

@@ -123,6 +123,47 @@ export interface Relatorio {
   total_tls: number;
   dhcp: EventoDhcp[];
   total_dhcp: number;
+  alertas: Alerta[];
+  historia: Historia;
+}
+
+export type Severidade = "baixa" | "media" | "alta";
+
+export interface Alerta {
+  id: number;
+  regra: string;
+  severidade: Severidade;
+  fase: string;
+  tecnica: string | null;
+  inicio_us: number;
+  fim_us: number;
+  host: string;
+  alvo: string | null;
+  alvo_ip: string | null;
+  parametros: Record<string, string>;
+  fluxos: number[];
+}
+
+export interface Passo {
+  alerta: number;
+  ts_us: number;
+  fase: string;
+  ligacao: "mesmo_destino" | "pouco_depois" | "depois" | null;
+}
+
+export interface Cadeia {
+  host: string;
+  confianca: Severidade;
+  inicio_us: number;
+  fim_us: number;
+  passos: Passo[];
+}
+
+export interface Historia {
+  paciente_zero: string | null;
+  hosts_afetados: string[];
+  cadeias: Cadeia[];
+  nao_mostra: string[];
 }
 
 export interface ErroCaptura {
