@@ -19,6 +19,9 @@ que merece atenção.
   incidente: destinos, domínios, SNI, JA4, user agents, serviços e alertas.
 - **Replay da rede:** as conexões acendem no tempo da captura, com os alertas
   marcados na régua.
+- **Mapa dos IPs externos:** países e organizações (ASN) de cada IP, com a
+  consulta feita no próprio navegador. Dá para carregar uma base `.mmdb` própria
+  para ver cidades.
 - **Anonimizador** para compartilhar capturas com a comunidade sem expor
   pessoas, credenciais ou a rede de origem: endereços trocados preservando a
   rede, nomes internos mascarados, conteúdo cortado e um relatório do que
@@ -78,3 +81,8 @@ usar o Wireshark compilado para WebAssembly, que também é GPL.
 
 MITRE ATT&CK® e MITRE D3FEND™ são da The MITRE Corporation e são usados
 conforme os termos de uso da MITRE.
+
+A geolocalização usa as bases [IP Geolocation by DB-IP](https://db-ip.com)
+(CC BY 4.0), baixadas na hora de publicar. Os contornos do mapa vêm do
+[Natural Earth](https://www.naturalearthdata.com) (domínio público), pelo pacote
+world-atlas (ISC).

@@ -484,6 +484,32 @@ conexão aberta, com espessura pelo volume e rosa quando a conexão é evidênci
 de alerta. Conexões curtas ficam acesas por 1,5% da duração, para dar para ver.
 A régua marca os alertas por severidade, e um clique vai até eles.
 
+### Mapa
+
+A aba **Mapa** mostra de onde são os IPs externos, por país e por ASN, sem enviar
+nenhum IP para fora: as bases vão junto com o site (`web/src/geo.ts` lê o formato
+MMDB no navegador). Só entram IPs de escopo externo; internos e reservados
+aparecem contados à parte.
+
+| Base | Comprimida | Onde fica |
+|---|---|---|
+| País (DB-IP Lite) | 4 MB | no site, guardada para uso offline |
+| ASN (DB-IP Lite) | 5 MB | no site, guardada para uso offline |
+| Cidade, ou qualquer outra `.mmdb` | 60 MB na DB-IP | só se a pessoa carregar; fica na memória da aba |
+
+As bases não ficam no Git. `scripts/baixar_geo.py` baixa a do mês na publicação e
+o workflow republica todo dia 3 para pegar a nova; sem base, o build falha e o
+site no ar continua na versão anterior. Os contornos ficam em
+`web/src/mapa-paises.json`, gerado por `scripts/gerar_mapa.py`: resolução 110m,
+mais um ponto para os países que só existem na 50m (Singapura, Hong Kong, Malta).
+
+A base carregada pela pessoa é entrada hostil: o leitor verifica cada acesso,
+limita profundidade, quantidade de itens e o tamanho descomprimido (1 GB).
+
+A localização é a do registro do IP. CDN, VPN e nuvem distorcem o resultado, e
+numa captura anonimizada os lugares não têm sentido, porque os endereços foram
+trocados. A aba avisa isso no topo.
+
 ### Confiança da história
 
 Mede o quanto os fatos de um host formam uma intrusão encadeada, não a certeza

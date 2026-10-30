@@ -230,6 +230,31 @@ button.link:hover { text-decoration: underline; }
 .celula .subs .marca-status { width: 6px; height: 6px; }
 .detalhe-tecnica { display: flex; flex-direction: column; gap: 8px; border-color: var(--borda-forte); }
 
+/* Mapa */
+.aviso-mapa { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.aviso-mapa svg { color: var(--aviso); flex: none; margin-top: 3px; }
+.mapa-bloco { padding: 8px; }
+.mapa-mundi { width: 100%; display: block; }
+.mapa-pais { fill: var(--painel-2); stroke: var(--borda-forte); stroke-width: .5; }
+.mapa-pais.com-trafego { cursor: pointer; }
+.mapa-pais.com-trafego:hover { stroke: var(--texto-2); stroke-width: 1; }
+.mapa-pais.com-alerta { stroke: var(--texto); stroke-width: 1.2; }
+.mapa-pais.selecionado { stroke: var(--texto); stroke-width: 2; }
+.mapa-ponto { cursor: pointer; }
+.mapa-cidade { fill: var(--texto); stroke: var(--fundo); stroke-width: .8; }
+.mapa-cidade.com-alerta { fill: var(--rosa-claro); }
+.mapa-escala { display: inline-block; width: 48px; height: 9px; border-radius: 2px; vertical-align: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--rosa) 25%, var(--painel-2)), var(--rosa)); }
+.mapa-chave-alerta { display: inline-block; width: 12px; height: 9px; border-radius: 2px; vertical-align: 0; border: 1px solid var(--texto); background: var(--rosa-fundo); }
+.mapa-chave-cidade { display: inline-block; width: 7px; height: 7px; border-radius: 50%; vertical-align: 1px; background: var(--texto); }
+.mapa-detalhe-topo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.mapa-detalhe-topo h2 { margin: 0 auto 0 0; }
+.mapa-detalhe-topo button { display: inline-flex; align-items: center; gap: 6px; }
+.linha-selecionada td { background: var(--rosa-fundo); }
+.mapa-base { display: flex; flex-direction: column; gap: 8px; }
+.mapa-base h2 { margin: 0; }
+.mapa-base .lista { margin: 0; }
+.mapa-credito { font-size: 12px; }
+
 /* Replay */
 .replay { display: flex; flex-direction: column; gap: 12px; }
 .replay-controles { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

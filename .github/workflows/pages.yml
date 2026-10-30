@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # As bases de geolocalização saem todo mês: republica para pegar a nova.
+  schedule:
+    - cron: "17 6 3 * *"
 
 permissions:
   contents: read
@@ -42,6 +45,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - run: python3 ../scripts/baixar_geo.py
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

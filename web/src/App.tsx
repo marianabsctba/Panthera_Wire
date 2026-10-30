@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import {
-  Activity, AlertTriangle, BookOpen, Clock, Download, FileUp, GitCompare, Globe, Languages, LayoutDashboard, LayoutGrid, Lock, Play,
+  Activity, AlertTriangle, BookOpen, Clock, Download, FileUp, GitCompare, Globe, Languages, LayoutDashboard, LayoutGrid, Lock, Map as IconeMapa, Play,
   List, Network, Server, ShieldCheck, X,
 } from "lucide-react";
 import { ContextoIdioma, IDIOMAS, TEXTOS, idiomaInicial, salvarIdioma, type Idioma, type Textos } from "./idiomas";
@@ -11,6 +11,7 @@ import { Exportar } from "./exportar";
 import { Pacotes } from "./pacotes";
 import { Comparar } from "./comparar";
 import { Replay } from "./replay";
+import { Mapa } from "./mapa";
 import type { MensagemLeitura, Relatorio } from "./tipos";
 import AvisoAtualizacao from "./AvisoAtualizacao";
 
@@ -27,6 +28,7 @@ const MENU: { chave: Pagina; icone: typeof Activity; pronta: boolean }[] = [
   { chave: "fluxos", icone: Activity, pronta: true },
   { chave: "pacotes", icone: List, pronta: true },
   { chave: "hosts", icone: Server, pronta: true },
+  { chave: "mapa", icone: IconeMapa, pronta: true },
   { chave: "dns", icone: Globe, pronta: true },
   { chave: "tls", icone: Lock, pronta: true },
   { chave: "http", icone: Network, pronta: true },
@@ -46,6 +48,7 @@ const PAGINAS: Partial<Record<Pagina, (c: Contexto) => JSX.Element>> = {
   linhaDoTempo: LinhaDoTempo,
   fluxos: Fluxos,
   hosts: Hosts,
+  mapa: Mapa,
   dns: Dns,
   tls: Tls,
   http: Http,
