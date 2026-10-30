@@ -510,6 +510,13 @@ A localização é a do registro do IP. CDN, VPN e nuvem distorcem o resultado, 
 numa captura anonimizada os lugares não têm sentido, porque os endereços foram
 trocados. A aba avisa isso no topo.
 
+A localização é consultada na hora da análise, não vem da captura, e não existe
+histórico por IP. A tela mostra a data da captura e a de cada base, e alerta se a
+distância passar de 90 dias (valor de bom senso, não medido). Esse alerta compara
+só as datas: ele não sabe quais IPs mudaram. Com uma base carregada daquele
+período, a localização passa a sair dela, mas a comparação ainda considera as
+bases embutidas, que continuam respondendo o que a outra não tem.
+
 ### Confiança da história
 
 Mede o quanto os fatos de um host formam uma intrusão encadeada, não a certeza

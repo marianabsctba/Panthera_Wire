@@ -234,6 +234,8 @@ button.link:hover { text-decoration: underline; }
 .aviso-mapa { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
 .aviso-mapa svg { color: var(--aviso); flex: none; margin-top: 3px; }
 .mapa-bloco { padding: 8px; }
+.mapa-datas { font-size: 13px; }
+.defasagem { border-color: var(--aviso); }
 .mapa-mundi { width: 100%; display: block; }
 .mapa-pais { fill: var(--painel-2); stroke: var(--borda-forte); stroke-width: .5; }
 .mapa-pais.com-trafego { cursor: pointer; }

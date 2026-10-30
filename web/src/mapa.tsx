@@ -13,6 +13,10 @@ import type { Host, Relatorio } from "./tipos";
 
 const MOSTRAR_ASN = 50;
 const MOSTRAR_IPS = 200;
+/** Acima disso a tela alerta. Valor de bom senso, não medido. */
+const DEFASAGEM_DIAS = 90;
+/** Antes disso o relógio de quem capturou estava errado ou zerado. */
+const DATA_MINIMA_US = Date.UTC(1995, 0, 1) * 1000;
 
 interface LinhaIp {
   host: Host;
@@ -141,6 +145,11 @@ export function Mapa({ r, nomes, verPacotes }: Contexto) {
   const porCodigo = new Map(dados?.paises.map((p) => [p.chave, p]));
   const dataBase = (b: Base) => (b.gerada ? new Date(b.gerada * 1000).toISOString().slice(0, 7) : "");
   const rotuloIp = (ip: string) => (nomes.get(ip) ? `${ip} (${nomes.get(ip)})` : ip);
+  const inicioUs = r.captura.inicio_us;
+  const capturaDatada = inicioUs >= DATA_MINIMA_US;
+  const defasagemDias = capturaDatada
+    ? Math.max(0, ...bases.filter((b) => b.gerada).map((b) => Math.abs(inicioUs / 1e6 - b.gerada) / 86400))
+    : 0;
   const dica = (p: Agregado) => `${p.nome}: ${tm.resumoIps(p.ips.length, numero(p.ips.length, idioma))} · ${tm.enviado} ${tamanho(p.enviados)} · ${tm.recebido} ${tamanho(p.recebidos)}`;
 
   return (
@@ -162,6 +171,19 @@ export function Mapa({ r, nomes, verPacotes }: Contexto) {
             <div className="cartao"><div className="rotulo">{tm.semLocal}</div><div className="valor">{numero(dados.semLocal, idioma)}</div></div>
             <div className="cartao"><div className="rotulo">{tm.semGeografia}</div><div className="valor">{numero(dados.semGeografia, idioma)}</div></div>
           </div>
+
+          {dados.linhas.length > 0 && !capturaDatada && <div className="suave mapa-datas">{tm.capturaSemData}</div>}
+          {dados.linhas.length > 0 && capturaDatada && (
+            <div className="suave mapa-datas">
+              {tm.datas(new Date(inicioUs / 1000).toISOString().slice(0, 7), bases.map((b) => `${b.tipo} ${dataBase(b)}`).join(", "))}
+            </div>
+          )}
+          {dados.linhas.length > 0 && defasagemDias > DEFASAGEM_DIAS && (
+            <div className="bloco aviso-mapa defasagem">
+              <AlertTriangle size={15} />
+              <span>{tm.defasagem(Math.round(defasagemDias / 30.44))}</span>
+            </div>
+          )}
 
           {dados.linhas.length === 0 && (
             <div className="bloco destaque-rosa">
