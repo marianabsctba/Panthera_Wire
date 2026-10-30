@@ -163,8 +163,36 @@ export function Mapa({ r, nomes, verPacotes }: Contexto) {
             <div className="cartao"><div className="rotulo">{tm.semGeografia}</div><div className="valor">{numero(dados.semGeografia, idioma)}</div></div>
           </div>
 
-          {dados.linhas.length === 0 && <div className="bloco suave">{tm.nenhumExterno}</div>}
+          {dados.linhas.length === 0 && (
+            <div className="bloco destaque-rosa">
+              <h2>{tm.nenhumExterno}</h2>
+              <div className="suave">{tm.nenhumExternoPorque}</div>
+            </div>
+          )}
 
+          {dados.linhas.length === 0 && r.hosts.length > 0 && (
+            <div className="bloco">
+              <h2>{tm.enderecos} <span className="fraco">{numero(r.hosts.length, idioma)}</span></h2>
+              <div className="rolagem">
+                <table>
+                  <thead>
+                    <tr><th>{t.col.ip}</th><th>{tm.escopo}</th><th /></tr>
+                  </thead>
+                  <tbody>
+                    {r.hosts.slice(0, MOSTRAR_IPS).map((h) => (
+                      <tr key={h.ip}>
+                        <td className="mono quebra">{rotuloIp(h.ip)}</td>
+                        <td><span className="selo">{t.escopos[h.escopo]}</span></td>
+                        <td><button className="link" onClick={() => verPacotes({ ips: [h.ip], portas: [] })}>{t.pacotes.ver}</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {dados.linhas.length > 0 && (
           <div className="bloco mapa-bloco">
             <svg className="mapa-mundi" viewBox={`0 0 ${desenho.largura} ${desenho.altura}`} role="img" aria-label={tm.titulo}>
               {desenho.paises.map(({ c, d }) => {
@@ -213,6 +241,7 @@ export function Mapa({ r, nomes, verPacotes }: Contexto) {
               {dados.cidades.length > 0 && <span><span className="mapa-chave-cidade" /> {tm.legendaCidade}</span>}
             </div>
           </div>
+          )}
 
           {pais && (
             <div className="bloco">
