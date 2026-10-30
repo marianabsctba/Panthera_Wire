@@ -25,6 +25,21 @@ fn ordem(fase: &str) -> Option<u8> {
 /// Dois fatos até 30 minutos um do outro contam como "pouco depois".
 const PROXIMO_US: u64 = 30 * 60 * 1_000_000;
 
+/// Sinais de comando e controle que programa legítimo quase nunca produz, e por
+/// isso não precisam dividir destino com a entrega. Beaconing fica de fora (jogo
+/// e atualizador também consultam servidor em intervalos regulares), assim como
+/// certificado ruim, que aparece em serviço legítimo.
+const CONTROLE_FORTE: &[&str] = &["protocolo_disfarcado", "c2_rotativo"];
+
+/// Entrega e controle só se sustentam juntos com algo que os ligue: o mesmo
+/// destino ou um sinal forte. Coincidir no tempo não basta: muito malware baixa
+/// de um servidor e fala com outro, mas um programa comum também.
+fn ligados(entrega: &Alerta, controle: &Alerta) -> bool {
+    let mesmo_ip = entrega.alvo_ip.is_some() && entrega.alvo_ip == controle.alvo_ip;
+    let mesmo_nome = entrega.alvo.is_some() && entrega.alvo == controle.alvo;
+    mesmo_ip || mesmo_nome || CONTROLE_FORTE.contains(&controle.regra)
+}
+
 pub struct Contexto<'a> {
     pub alertas: &'a [Alerta],
     pub fluxos: &'a [Fluxo],
@@ -52,15 +67,14 @@ pub fn montar(c: &Contexto) -> Historia {
             continue;
         }
 
-        let entrega_e_controle = fatos.iter().any(|e| {
-            matches!(e.fase, "entrega" | "acesso_inicial")
-                && fatos.iter().any(|c| {
-                    c.fase == "comando_e_controle"
-                        && c.severidade != "baixa"
-                        && c.inicio_us >= e.inicio_us
-                        && c.inicio_us - e.inicio_us <= PROXIMO_US
-                })
+        let entrega = |a: &&&Alerta| matches!(a.fase, "entrega" | "acesso_inicial") && a.severidade != "baixa";
+        let controle = |a: &&&Alerta| a.fase == "comando_e_controle" && a.severidade != "baixa";
+        let entrega_e_controle = fatos.iter().filter(entrega).any(|e| {
+            fatos.iter().filter(controle).any(|c| {
+                c.inicio_us >= e.inicio_us && c.inicio_us - e.inicio_us <= PROXIMO_US && ligados(e, c)
+            })
         });
+        let sem_ligacao = fases.len() == 2 && fatos.iter().any(|a| entrega(&a)) && fatos.iter().any(|a| controle(&a));
         // A confiança mede o quanto os fatos formam uma intrusão encadeada,
         // não a certeza de cada alerta. O motivo vai junto para a interface
         // explicar.
@@ -68,6 +82,8 @@ pub fn montar(c: &Contexto) -> Historia {
             ("alta", "entrega_e_controle")
         } else if fases.len() >= 3 {
             ("alta", "tres_fases")
+        } else if sem_ligacao {
+            ("media", "sem_ligacao")
         } else if fases.len() >= 2 && altas >= 2 {
             ("alta", "duas_graves")
         } else if fases.len() == 2 {
@@ -149,4 +165,91 @@ pub fn montar(c: &Contexto) -> Historia {
     }
 
     Historia { paciente_zero, hosts_afetados: afetados.into_iter().collect(), cadeias, nao_mostra }
+}
+
+#[cfg(test)]
+mod testes {
+    use super::*;
+
+    const INSTANTE: u64 = 1_700_000_000_000_000;
+
+    fn alerta(id: u32, regra: &'static str, severidade: &'static str, fase: &'static str, seg: u64, alvo: &str) -> Alerta {
+        Alerta {
+            id,
+            regra,
+            severidade,
+            fase,
+            tecnica: None,
+            inicio_us: INSTANTE + seg * 1_000_000,
+            fim_us: INSTANTE + seg * 1_000_000,
+            host: "10.0.0.5".parse().unwrap(),
+            alvo: Some(alvo.into()),
+            alvo_ip: alvo.parse().ok(),
+            parametros: BTreeMap::new(),
+            fluxos: Vec::new(),
+        }
+    }
+
+    fn resultado(alertas: &[Alerta]) -> (&'static str, &'static str) {
+        let h = montar(&Contexto { alertas, fluxos: &[], tem_tls: false, tem_avisos: false });
+        (h.cadeias[0].confianca, h.cadeias[0].motivo)
+    }
+
+    fn download(seg: u64, alvo: &str) -> Alerta {
+        alerta(1, "download_executavel", "alta", "entrega", seg, alvo)
+    }
+
+    fn beaconing(seg: u64, alvo: &str) -> Alerta {
+        alerta(2, "beaconing", "alta", "comando_e_controle", seg, alvo)
+    }
+
+    /// Baixar um jogo e ele consultar outro servidor não é história de intrusão.
+    #[test]
+    fn download_e_beaconing_sem_ligacao_ficam_em_media() {
+        assert_eq!(resultado(&[download(0, "198.51.100.1"), beaconing(60, "203.0.113.9")]), ("media", "sem_ligacao"));
+    }
+
+    #[test]
+    fn mesmo_destino_liga_entrega_e_controle() {
+        assert_eq!(resultado(&[download(0, "203.0.113.9"), beaconing(60, "203.0.113.9")]), ("alta", "entrega_e_controle"));
+        assert_eq!(resultado(&[download(0, "jogo.example"), beaconing(60, "jogo.example")]), ("alta", "entrega_e_controle"));
+    }
+
+    /// Como na infecção real de 2026-10-01: baixa de um servidor e, segundos
+    /// depois, fala com outro por um protocolo disfarçado.
+    #[test]
+    fn sinal_forte_dispensa_o_mesmo_destino() {
+        let disfarcado = alerta(2, "protocolo_disfarcado", "media", "comando_e_controle", 8, "203.0.113.9");
+        assert_eq!(resultado(&[download(0, "198.51.100.1"), disfarcado]), ("alta", "entrega_e_controle"));
+    }
+
+    #[test]
+    fn certificado_ruim_nao_e_sinal_forte() {
+        let cert = alerta(2, "certificado_suspeito", "media", "comando_e_controle", 8, "203.0.113.9");
+        assert_eq!(resultado(&[download(0, "198.51.100.1"), cert]), ("media", "sem_ligacao"));
+    }
+
+    #[test]
+    fn longe_no_tempo_nao_liga_mesmo_com_o_mesmo_destino() {
+        assert_eq!(resultado(&[download(0, "203.0.113.9"), beaconing(3600, "203.0.113.9")]), ("media", "sem_ligacao"));
+    }
+
+    /// Download de fonte conhecida tem severidade baixa e não conta como entrega.
+    #[test]
+    fn entrega_de_severidade_baixa_nao_liga() {
+        let baixa = alerta(1, "download_executavel", "baixa", "entrega", 0, "203.0.113.9");
+        assert_eq!(resultado(&[baixa, beaconing(60, "203.0.113.9")]), ("baixa", "uma_grave"));
+    }
+
+    #[test]
+    fn tres_fases_continuam_altas_sem_ligacao() {
+        let exfil = alerta(3, "exfiltracao_volume", "alta", "exfiltracao", 120, "192.0.2.7");
+        assert_eq!(resultado(&[download(0, "198.51.100.1"), beaconing(60, "203.0.113.9"), exfil]), ("alta", "tres_fases"));
+    }
+
+    #[test]
+    fn duas_fases_graves_sem_entrega_continuam_altas() {
+        let exfil = alerta(3, "exfiltracao_volume", "alta", "exfiltracao", 120, "192.0.2.7");
+        assert_eq!(resultado(&[beaconing(60, "203.0.113.9"), exfil]), ("alta", "duas_graves"));
+    }
 }

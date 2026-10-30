@@ -45,7 +45,7 @@ const pt = {
   fases: {
     acesso_inicial: "Acesso inicial",
     entrega: "Entrega",
-    comando_e_controle: "Comando e controle",
+    comando_e_controle: "Possível comando e controle",
     credenciais: "Credenciais",
     descoberta: "Descoberta",
     movimentacao_lateral: "Movimentação lateral",
@@ -71,12 +71,13 @@ const pt = {
     confiancaTexto:
       "A confiança diz o quanto os fatos de um host formam uma intrusão encadeada, e não a certeza de cada alerta. Ela olha quantas fases diferentes de um ataque apareceram e quão graves elas são. Alertas de severidade baixa entram na sequência, mas não contam como fase.",
     confiancaRegras: [
-      "Alta: entrega (download ou acesso inicial) seguida de comando e controle em até 30 minutos; ou três fases ou mais; ou duas fases com dois ou mais alertas graves.",
-      "Média: duas fases.",
+      "Alta: entrega (download ou acesso inicial) seguida, em até 30 minutos, de possível comando e controle no mesmo destino ou com um sinal forte (protocolo disfarçado, rotação de domínios); ou três fases ou mais; ou duas fases com dois ou mais alertas graves.",
+      "Média: duas fases, inclusive entrega e possível comando e controle sem nada que os ligue.",
       "Baixa: uma fase só, mas com um alerta grave.",
     ],
     motivo: {
-      entrega_e_controle: () => "Alta porque houve entrega seguida de comando e controle em até 30 minutos.",
+      entrega_e_controle: () => "Alta porque a entrega foi seguida, em até 30 minutos, de possível comando e controle no mesmo destino ou com um sinal forte.",
+      sem_ligacao: (f: string) => `Média porque nada liga as duas fases (${f}): os destinos são diferentes ou estão longe no tempo. Pode ser um programa legítimo.`,
       tres_fases: (f: string) => `Alta porque apareceram três fases ou mais: ${f}.`,
       duas_graves: (f: string) => `Alta porque são duas fases (${f}) com dois ou mais alertas graves.`,
       duas_fases: (f: string) => `Média porque são duas fases: ${f}.`,
@@ -425,7 +426,7 @@ const pt = {
       porque: "Usar a porta de um protocolo liberado (DNS, HTTP, HTTPS) para passar outra coisa é um jeito clássico de esconder um shell remoto ou um túnel dos filtros.",
     },
     c2_rotativo: {
-      nome: "Comando e controle rotativo",
+      nome: "Possível comando e controle rotativo",
       titulo: (a) => `Mesmo pedido para ${a.p.dominios} domínios diferentes`,
       frase: (a) => `${a.h} fez ${a.p.pedidos} requisições com o mesmo formato (${a.p.forma}) para ${a.p.dominios} domínios, como ${a.p.exemplos}, quase todas com erro.`,
       porque: "Malware como FormBook e XLoader espalha o contato por uma lista de domínios, a maioria iscas, para esconder qual é o servidor de comando de verdade.",
@@ -441,7 +442,7 @@ const en: TextosInteligencia = {
   fases: {
     acesso_inicial: "Initial access",
     entrega: "Delivery",
-    comando_e_controle: "Command and control",
+    comando_e_controle: "Possible command and control",
     credenciais: "Credentials",
     descoberta: "Discovery",
     movimentacao_lateral: "Lateral movement",
@@ -467,12 +468,13 @@ const en: TextosInteligencia = {
     confiancaTexto:
       "Confidence says how much a host's facts form a chained intrusion, not how certain each alert is. It looks at how many different attack phases showed up and how serious they are. Low severity alerts join the sequence but do not count as a phase.",
     confiancaRegras: [
-      "High: delivery (download or initial access) followed by command and control within 30 minutes; or three or more phases; or two phases with two or more serious alerts.",
-      "Medium: two phases.",
+      "High: delivery (download or initial access) followed, within 30 minutes, by possible command and control on the same destination or with a strong signal (disguised protocol, domain rotation); or three or more phases; or two phases with two or more serious alerts.",
+      "Medium: two phases, including delivery and possible command and control with nothing linking them.",
       "Low: a single phase, but with a serious alert.",
     ],
     motivo: {
-      entrega_e_controle: () => "High because delivery was followed by command and control within 30 minutes.",
+      entrega_e_controle: () => "High because delivery was followed, within 30 minutes, by possible command and control on the same destination or with a strong signal.",
+      sem_ligacao: (f) => `Medium because nothing links the two phases (${f}): the destinations differ or are far apart in time. It may be a legitimate program.`,
       tres_fases: (f) => `High because three or more phases showed up: ${f}.`,
       duas_graves: (f) => `High because there are two phases (${f}) with two or more serious alerts.`,
       duas_fases: (f) => `Medium because there are two phases: ${f}.`,
@@ -819,7 +821,7 @@ const en: TextosInteligencia = {
       porque: "Using the port of an allowed protocol (DNS, HTTP, HTTPS) to carry something else is a classic way to hide a remote shell or a tunnel from filters.",
     },
     c2_rotativo: {
-      nome: "Rotating command and control",
+      nome: "Possible rotating command and control",
       titulo: (a) => `Same request to ${a.p.dominios} different domains`,
       frase: (a) => `${a.h} made ${a.p.pedidos} requests with the same shape (${a.p.forma}) to ${a.p.dominios} domains, such as ${a.p.exemplos}, almost all of them failing.`,
       porque: "Malware such as FormBook and XLoader spreads its contact across a list of domains, mostly decoys, to hide which one is the real command server.",
@@ -833,7 +835,7 @@ const es: TextosInteligencia = {
   fases: {
     acesso_inicial: "Acceso inicial",
     entrega: "Entrega",
-    comando_e_controle: "Comando y control",
+    comando_e_controle: "Posible comando y control",
     credenciais: "Credenciales",
     descoberta: "Descubrimiento",
     movimentacao_lateral: "Movimiento lateral",
@@ -859,12 +861,13 @@ const es: TextosInteligencia = {
     confiancaTexto:
       "La confianza indica cuánto los hechos de un host forman una intrusión encadenada, y no la certeza de cada alerta. Mira cuántas fases distintas de un ataque aparecieron y qué tan graves son. Las alertas de severidad baja entran en la secuencia, pero no cuentan como fase.",
     confiancaRegras: [
-      "Alta: entrega (descarga o acceso inicial) seguida de comando y control en hasta 30 minutos; o tres fases o más; o dos fases con dos o más alertas graves.",
-      "Media: dos fases.",
+      "Alta: entrega (descarga o acceso inicial) seguida, en hasta 30 minutos, de posible comando y control en el mismo destino o con una señal fuerte (protocolo disfrazado, rotación de dominios); o tres fases o más; o dos fases con dos o más alertas graves.",
+      "Media: dos fases, incluso entrega y posible comando y control sin nada que los una.",
       "Baja: una sola fase, pero con una alerta grave.",
     ],
     motivo: {
-      entrega_e_controle: () => "Alta porque hubo entrega seguida de comando y control en hasta 30 minutos.",
+      entrega_e_controle: () => "Alta porque la entrega fue seguida, en hasta 30 minutos, de posible comando y control en el mismo destino o con una señal fuerte.",
+      sem_ligacao: (f) => `Media porque nada une las dos fases (${f}): los destinos son distintos o están lejos en el tiempo. Puede ser un programa legítimo.`,
       tres_fases: (f) => `Alta porque aparecieron tres fases o más: ${f}.`,
       duas_graves: (f) => `Alta porque son dos fases (${f}) con dos o más alertas graves.`,
       duas_fases: (f) => `Media porque son dos fases: ${f}.`,
@@ -1211,7 +1214,7 @@ const es: TextosInteligencia = {
       porque: "Usar el puerto de un protocolo permitido (DNS, HTTP, HTTPS) para pasar otra cosa es una forma clásica de esconder un shell remoto o un túnel de los filtros.",
     },
     c2_rotativo: {
-      nome: "Comando y control rotativo",
+      nome: "Posible comando y control rotativo",
       titulo: (a) => `Mismo pedido a ${a.p.dominios} dominios distintos`,
       frase: (a) => `${a.h} hizo ${a.p.pedidos} solicitudes con el mismo formato (${a.p.forma}) a ${a.p.dominios} dominios, como ${a.p.exemplos}, casi todas con error.`,
       porque: "Malware como FormBook y XLoader reparte el contacto entre una lista de dominios, en su mayoría señuelos, para esconder cuál es el servidor de comando real.",

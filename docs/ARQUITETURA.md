@@ -525,12 +525,21 @@ como fase.
 
 | Confiança | Quando |
 |---|---|
-| Alta | entrega (download ou acesso inicial) seguida de comando e controle em até 30 minutos; ou três fases ou mais; ou duas fases com dois ou mais alertas graves |
-| Média | duas fases |
+| Alta | entrega (download ou acesso inicial, sem contar severidade baixa) seguida, em até 30 minutos, de possível comando e controle no mesmo destino ou com sinal forte (`protocolo_disfarcado`, `c2_rotativo`); ou três fases ou mais; ou duas fases com dois ou mais alertas graves |
+| Média | duas fases, inclusive entrega e possível comando e controle sem nada que os ligue (`sem_ligacao`) |
 | Baixa | uma fase só, com alerta grave |
 
 Cada sequência traz o motivo (`motivo`) e as fases que contaram, e a interface
 explica isso na própria história.
+
+A captura não vê um comando sendo dado: toda regra da fase é inferência de
+comportamento, por isso a tela diz "possível comando e controle". A ligação existe
+porque um download seguido de consultas regulares a outro servidor também descreve
+um jogo com ranking online. O preço é real: malware que baixa de um servidor e faz
+beaconing em outro fica em média. O sinal forte veio da calibração, com uma captura
+só (2026-10-01, download e protocolo disfarçado em destinos diferentes). Um
+programa baixado e que consulta o próprio site em intervalos regulares continua em
+alta, porque a captura não separa os dois casos.
 
 ### Calibração com capturas reais
 
